@@ -1,0 +1,39 @@
+rules_version = '2';
+// Only someone signed in with the family password can read or change the lists.
+// The address below must match FAMILY_ACCOUNT_EMAIL in js/config.js.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isFamily() {
+      return request.auth != null
+          && request.auth.token.email == "family@example.com";
+    }
+
+    match /people/{id} {
+      allow read: if isFamily();
+      allow create, update: if isFamily()
+                            && request.resource.data.name is string
+                            && request.resource.data.name.size() > 0
+                            && request.resource.data.name.size() <= 40;
+      // names are normally only hidden (removed: true); deleting is only
+      // used when restoring a backup from before a name was added
+      allow delete: if isFamily();
+    }
+    match /items/{id} {
+      allow read, delete: if isFamily();
+      allow create, update: if isFamily()
+                            && request.resource.data.title is string
+                            && request.resource.data.title.size() <= 150
+                            && request.resource.data.personId is string
+                            && request.resource.data.size() <= 25;
+    }
+    match /meta/settings {
+      allow read, write: if isFamily();
+    }
+    // Daily backups (kept 30 days) used by the restore option.
+    match /backups/{id} {
+      allow read, create, delete: if isFamily();
+      allow update: if false; // a backup never changes once taken
+    }
+    // Everything else is closed.
+  }
+}
