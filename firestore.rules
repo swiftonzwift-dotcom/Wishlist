@@ -14,7 +14,9 @@ service cloud.firestore {
                             && request.resource.data.name is string
                             && request.resource.data.name.size() > 0
                             && request.resource.data.name.size() <= 40;
-      allow delete: if false; // names are only hidden (removed: true), never erased
+      // names are normally only hidden (removed: true); deleting is only
+      // used when restoring a backup from before a name was added
+      allow delete: if isFamily();
     }
     match /items/{id} {
       allow read, delete: if isFamily();
@@ -26,6 +28,11 @@ service cloud.firestore {
     }
     match /meta/settings {
       allow read, write: if isFamily();
+    }
+    // Daily backups (kept 30 days) used by the restore option.
+    match /backups/{id} {
+      allow read, create, delete: if isFamily();
+      allow update: if false; // a backup never changes once taken
     }
     // Everything else is closed.
   }

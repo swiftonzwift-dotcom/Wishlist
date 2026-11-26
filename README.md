@@ -25,10 +25,18 @@ A simple, phone-friendly wish list site for the family. There are no accounts or
 - **Secret gift ideas:** add an idea to someone's list. Everyone except that person can see it.
 - **Gifts I'm giving:** one page listing everything you've marked as bought.
 
+**Backups and admin tools (Tim only)**
+- The first time anyone opens the site each day, a full copy of every list is saved. Copies older than 30 days are cleared out automatically.
+- Tim sees **Backups and admin tools** at the bottom of the home screen. From there he can put every list back to the start of any of the last 30 days. A copy of the lists as they are just before a restore is saved first, so a restore can be undone. Restoring asks for **APPROVE**.
+- Starting next year's lists early is also only on that page.
+- Who counts as the admin is set by `ADMIN_NAMES` in `js/config.js`. Like choosing your name, it's on trust: it hides the tools from everyone else but isn't a separate password.
+- Backups are only made on days someone opens the site. On days nobody visits, nothing changes, so there's nothing new to save.
+
 **Every new year**
 - On **January 1**, the old year's lists are automatically saved under **Past years** (read-only) and everyone gets a fresh list.
 - Anything you wished for last year that nobody bought can be brought back with one tap.
-- If you want to start early, the Past years page has a button (it also asks for **APPROVE**).
+- Tim can start the new year early from the admin page (it also asks for **APPROVE**).
+- The Past years tile only appears once there are past years.
 
 **Also:** a "How it works" help page, a button to send the site link to family, dark mode, and you can add it to your phone's home screen like an app.
 

@@ -51,3 +51,7 @@ export const HOME_FAMILY = {
   "Tim Smith": "mitchell",
   "Ellen Smith": "mitchell",
 };
+
+// Who sees the admin tools (backups and restore, starting next year early).
+// Only the site looks at this: there are no separate admin passwords.
+export const ADMIN_NAMES = ["Tim Smith"];

@@ -1,5 +1,5 @@
 import { createStore, uid } from "./store.js";
-import { FAMILIES } from "./config.js";
+import { FAMILIES, ADMIN_NAMES } from "./config.js";
 import { fetchPreview, normalizeUrl, safeUrl, hostOf, siteNameFor } from "./preview.js";
 
 const app = document.getElementById("app");
@@ -34,22 +34,6 @@ const PRIORITY = {
 const possessive = (n) => (/s$/i.test(n) ? `${n}’` : `${n}’s`);
 const plural = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
-const AVATAR_COLORS = ["var(--lemon)", "var(--mint)", "var(--sky)", "var(--bubblegum)"];
-function initials(name) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const a = (parts[0] || "?").charAt(0);
-  const b = parts.length > 1 ? parts[parts.length - 1].charAt(0) : "";
-  return (a + b).toUpperCase();
-}
-
-function avatar(p, size = "") {
-  const name = (p && p.name) || "?";
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const bg = AVATAR_COLORS[h % AVATAR_COLORS.length];
-  return `<span class="avatar ${size}" style="background:${bg}" aria-hidden="true">${esc(initials(name))}</span>`;
-}
-
 const year = () => Number(S.settings.currentYear) || new Date().getFullYear();
 const person = (id) => S.people.find((p) => p.id === id);
 const activePeople = () =>
@@ -58,6 +42,10 @@ const itemsFor = (pid, yr = year()) => S.items.filter((i) => i.personId === pid 
 const nameOf = (id, fallback = "someone") => (person(id) && person(id).name) || fallback;
 const firstName = (p) => String((p && p.name) || "").trim().split(/\s+/)[0] || "them";
 const firstOf = (id, fallback = "someone") => (person(id) ? firstName(person(id)) : fallback);
+const isAdmin = () => {
+  const me = person(getMeId());
+  return !!me && ADMIN_NAMES.some((n) => n.trim().toLowerCase() === me.name.trim().toLowerCase());
+};
 
 /* families: each person belongs to one or more; the toggle picks which to show */
 const FAM_IDS = FAMILIES.map((f) => f.id);
@@ -158,6 +146,7 @@ function render() {
       case "past": html = b ? viewPastPerson(Number(a), b) : a ? viewPastYear(Number(a)) : viewPast(); break;
       case "shopping": html = viewShopping(); break;
       case "help": html = viewHelp(); break;
+      case "admin": html = isAdmin() ? viewAdmin() : viewHome(); break;
       default: html = viewHome();
     }
   }
@@ -245,7 +234,6 @@ function viewHome() {
   const others = famSort(activePeople().filter((p) => p.id !== me.id && inFam(p)));
   const mine = itemsFor(me.id).filter((i) => !i.isSecret);
   const giving = S.items.filter((i) => Number(i.year) === year() && i.purchased && i.purchasedBy === me.id);
-  const names = activePeople().filter((p) => inFam(p)).length;
 
   const row = (p) => {
     const list = itemsFor(p.id);
@@ -253,8 +241,7 @@ function viewHome() {
     const meta = list.length
       ? `<span class="rc-meta">${plural(list.length, "wish", "wishes")}${bought ? ` · ${bought} bought` : ""}</span>`
       : `<span class="rc-meta quiet">No wishes yet</span>`;
-    return `<li><a class="row-card person-row" href="#/list/${esc(p.id)}">${avatar(p)}
-      <span class="rc-text"><strong class="rc-name">${esc(p.name)}</strong>${meta}</span>
+    return `<li><a class="row-card person-row" href="#/list/${esc(p.id)}"><span class="rc-text"><strong class="rc-name">${esc(p.name)}</strong>${meta}</span>
       <span class="corner-action">See list</span></a></li>`;
   };
 
@@ -270,8 +257,7 @@ function viewHome() {
       <button class="tile tile--electric" data-action="add-item" data-person="${esc(me.id)}">Add a wish</button>
       <a class="tile tile--paper" href="#/list/${esc(me.id)}">My list<span class="num">${mine.length}</span></a>
       <a class="tile tile--lemon" href="#/shopping">I’m giving<span class="num">${giving.length}</span></a>
-      <a class="tile tile--mint" href="#/past">Past years<span class="num">${pastYears().length}</span></a>
-      <a class="tile tile--bubblegum" href="#/family">Names<span class="num">${names}</span></a>
+      ${pastYears().length ? `<a class="tile tile--mint" href="#/past">Past years<span class="num">${pastYears().length}</span></a>` : ""}
     </div>
 
     ${sectionLabel(currentFam() === ALL ? "Everyone" : esc(famHeading()), `<a href="#/family">Edit names</a>`)}
@@ -281,6 +267,7 @@ function viewHome() {
       <li><a href="#/help">How it works</a></li>
       <li><button type="button" data-action="share">Send this site to family</button></li>
       <li><a href="#/who">Not ${esc(firstName(me))}? Switch person</a></li>
+      ${isAdmin() ? `<li><a href="#/admin">Backups and admin tools</a></li>` : ""}
       ${store.mode === "cloud" ? `<li><button type="button" data-action="sign-out">Sign out on this phone</button></li>` : ""}
     </ul>
   </div>`;
@@ -369,7 +356,7 @@ function viewTheirList(p) {
   const name = esc(firstName(p));
   return `<div class="page">
     ${pagebar()}
-    <div class="list-head">${avatar(p, "lg")}<div><p class="label">Wish list of</p><h1>${esc(p.name)}</h1></div></div>
+    <div class="list-head"><div><p class="label">Wish list of</p><h1>${esc(p.name)}</h1></div></div>
     ${items.length ? `<div class="stat-pills"><span class="pill pill--plain">${plural(items.length, "wish", "wishes")}</span><span class="pill pill--sky">${open} still available</span></div>
       <p class="lede">Bought something? Tap <strong>I bought this</strong> so nobody else buys it. ${name} won’t see it.</p>` : ""}
     ${sectionLabel("Wishes")}
@@ -433,13 +420,12 @@ function viewFamily() {
     </form>
     ${sectionLabel(plural(people.length, "person", "people"))}
     <ul class="row-list manage">
-      ${people.map((p) => `<li class="row-card">${avatar(p)}
-        <span class="rc-text"><span class="rc-name m-name">${esc(p.name)}</span><span class="fam-tags">${famTags(p)}</span></span>
+      ${people.map((p) => `<li class="row-card"><span class="rc-text"><span class="rc-name m-name">${esc(p.name)}</span><span class="fam-tags">${famTags(p)}</span></span>
         <span class="rc-actions"><button class="btn btn--secondary btn--small" data-action="rename-person" data-id="${esc(p.id)}">Edit</button>
         <button class="btn btn--danger btn--small" data-action="remove-person" data-id="${esc(p.id)}">Remove</button></span></li>`).join("")}
     </ul>
     ${removed.length ? `<details class="removed"><summary>Removed names (${removed.length})</summary><ul class="row-list manage">
-      ${removed.map((p) => `<li class="row-card">${avatar(p)}<span class="rc-text"><span class="rc-name m-name">${esc(p.name)}</span></span>
+      ${removed.map((p) => `<li class="row-card"><span class="rc-text"><span class="rc-name m-name">${esc(p.name)}</span></span>
         <span class="rc-actions"><button class="btn btn--secondary btn--small" data-action="restore-person" data-id="${esc(p.id)}">Bring back</button></span></li>`).join("")}
     </ul></details>` : ""}
   </div>`;
@@ -467,11 +453,6 @@ function viewPast() {
           <span class="rc-text"><span class="rc-meta">${plural(n, "wish", "wishes")}</span></span><span class="corner-action">Open</span></a></li>`;
       }).join("") || `<li class="empty">Nothing saved yet. The ${year()} lists will be saved here in January ${next}.</li>`}
     </ul>
-    <section class="panel">
-      <h2>Start ${next} early?</h2>
-      <p>This saves the ${year()} lists here and gives everyone a fresh list now. It happens on its own on January 1, so you normally don’t need this.</p>
-      <button class="btn btn--on-ink btn--block" data-action="start-next-year">Save ${year()} and start ${next}</button>
-    </section>
   </div>`;
 }
 
@@ -486,8 +467,7 @@ function viewPastYear(y) {
     ${sectionLabel(esc(famHeading()))}
     <ul class="row-list">${ppl.map((p) => {
       const list = itemsFor(p.id, y);
-      return `<li><a class="row-card person-row" href="#/past/${y}/${esc(p.id)}">${avatar(p)}
-        <span class="rc-text"><strong class="rc-name">${esc(p.name)}</strong><span class="rc-meta">${plural(list.length, "wish", "wishes")} · ${list.filter((i) => i.purchased).length} bought</span></span>
+      return `<li><a class="row-card person-row" href="#/past/${y}/${esc(p.id)}"><span class="rc-text"><strong class="rc-name">${esc(p.name)}</strong><span class="rc-meta">${plural(list.length, "wish", "wishes")} · ${list.filter((i) => i.purchased).length} bought</span></span>
         <span class="corner-action">Open</span></a></li>`;
     }).join("") || `<li class="empty">No lists that year.</li>`}</ul>
   </div>`;
@@ -498,10 +478,63 @@ function viewPastPerson(y, pid) {
   const items = sortItems(itemsFor(pid, y), true);
   return `<div class="page">
     ${pagebar({ href: `#/past/${y}`, label: `${y} lists` })}
-    <div class="list-head">${avatar(p, "lg")}<div><p class="label">${y} wish list of</p><h1>${esc(p.name)}</h1></div></div>
+    <div class="list-head"><div><p class="label">${y} wish list of</p><h1>${esc(p.name)}</h1></div></div>
     ${sectionLabel("Wishes")}
     ${items.length ? `<div class="item-grid">${items.map((i) => itemCard(i, "archive")).join("")}</div>` : `<p class="empty">No wishes.</p>`}
   </div>`;
+}
+
+/* --------------------------------------------------------------- admin */
+
+let backupCache = null; // list of backups, loaded when the admin page opens
+
+function dayLabel(day) {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function viewAdmin() {
+  const next = year() + 1;
+  if (!backupCache) {
+    loadBackups();
+  }
+  const list = (backupCache || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const row = (b) => {
+    const when = b.kind === "before-restore"
+      ? `Just before a restore, ${new Date(b.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+      : `Start of ${dayLabel(b.day)}`;
+    return `<li class="row-card"><span class="rc-text"><span class="rc-name">${esc(when)}</span>
+      <span class="rc-meta quiet">${plural(b.wishes || 0, "wish", "wishes")} · ${plural(b.people || 0, "name")}</span></span>
+      <span class="rc-actions"><button class="btn btn--secondary btn--small" data-action="restore-backup" data-id="${esc(b.id)}">Restore</button></span></li>`;
+  };
+  return `<div class="page">
+    ${pagebar()}
+    <h1 class="title">Admin tools</h1>
+    <p class="lede">Only you see this page.</p>
+
+    ${sectionLabel("Backups from the last 30 days")}
+    <p class="muted" style="margin:-4px 0 12px;font-size:15px">A full copy of every list is saved the first time anyone opens the site each day. Restoring puts every list back exactly as it was then. A copy of the lists as they are now is saved first, so a restore can be undone.</p>
+    ${backupCache === null ? `<p class="empty">Loading backups…</p>`
+      : list.length ? `<ul class="row-list manage">${list.map(row).join("")}</ul>`
+      : `<p class="empty">No backups yet. The first one is made today.</p>`}
+
+    <section class="panel">
+      <h2>Start ${next} early?</h2>
+      <p>This saves the ${year()} lists under Past years and gives everyone a fresh list now. It happens on its own on January 1, so you normally don’t need this.</p>
+      <button class="btn btn--on-ink btn--block" data-action="start-next-year">Save ${year()} and start ${next}</button>
+    </section>
+  </div>`;
+}
+
+async function loadBackups() {
+  try {
+    backupCache = await store.listBackups();
+  } catch (e) {
+    console.error(e);
+    backupCache = [];
+    toast("Couldn’t load backups. Check your internet.");
+  }
+  render();
 }
 
 /* ---------------------------------------------------------------- help */
@@ -840,6 +873,7 @@ const actions = {
     toast("Added back to your list");
   },
   async "start-next-year"() {
+    if (!isAdmin()) return;
     const cur = year();
     const ok = await approveBox({
       title: `Start the ${cur + 1} lists now?`,
@@ -861,6 +895,30 @@ const actions = {
     } catch (e) {
       if (e && e.name === "AbortError") return;
       prompt("Copy this link and send it to your family:", url);
+    }
+  },
+  async "restore-backup"(el) {
+    if (!isAdmin()) return;
+    const b = (backupCache || []).find((x) => x.id === el.dataset.id);
+    if (!b) return;
+    const when = b.kind === "before-restore" ? "just before the last restore" : `the start of ${dayLabel(b.day)}`;
+    const ok = await approveBox({
+      title: "Restore this backup?",
+      text: `Every list goes back to how it was at ${esc(when)}. Anything added, changed or marked as bought since then will be undone for everyone. A copy of the lists as they are now is saved first, in case you change your mind.`,
+      ok: "Restore",
+    });
+    if (!ok) return;
+    try {
+      const now = Date.now();
+      await store.saveBackupIfMissing(`before-restore-${now}`, makeBackup("before-restore", now));
+      const data = JSON.parse(b.data);
+      await store.replaceAll(data);
+      backupCache = null;
+      toast("Restored");
+      render();
+    } catch (e) {
+      console.error(e);
+      toast("The restore didn’t finish. Check your internet and try again.");
     }
   },
   async "sign-out"() {
@@ -931,6 +989,41 @@ window.addEventListener("hashchange", () => {
   window.scrollTo(0, 0);
 });
 
+/* ======================================================= daily backup */
+
+const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+function makeBackup(kind, createdAt = Date.now()) {
+  const strip = (o) => JSON.parse(JSON.stringify(o));
+  return {
+    kind,
+    day: todayKey(),
+    createdAt,
+    people: S.people.length,
+    wishes: S.items.length,
+    data: JSON.stringify({ people: strip(S.people), items: strip(S.items), settings: strip(S.settings) }),
+  };
+}
+
+// The first visit each day saves a full copy, and copies older than 30 days are cleared out.
+let backupChecked = false;
+async function maybeBackup() {
+  if (backupChecked || !S.ready || !store.saveBackupIfMissing) return;
+  backupChecked = true;
+  try {
+    await store.saveBackupIfMissing(`day-${todayKey()}`, makeBackup("daily"));
+    const cutoff = Date.now() - 31 * 864e5;
+    for (const b of await store.listBackups()) {
+      if ((b.createdAt || 0) < cutoff) await store.deleteBackup(b.id);
+    }
+  } catch (e) {
+    console.warn("Backup skipped:", e);
+  }
+}
+
 /* ================================================== yearly rollover */
 
 // On or after January 1, save last year's lists and start the new year.
@@ -968,6 +1061,7 @@ function start() {
   store.subscribe(
     (snap) => {
       S = { ...S, ...snap, ready: true, error: "" };
+      maybeBackup();
       maybeRollover();
       render();
     },

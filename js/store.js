@@ -8,6 +8,8 @@
 //                  priority (1-3), isSecret, addedBy, createdAt, copiedFrom?,
 //                  purchased, purchasedBy, purchasedByName, purchasedAt }
 //  meta/settings { currentYear, archivedYear?, rolledOverAt? }
+//  backups/{id}  { kind: "daily" | "before-restore", day, createdAt, people, wishes, data (JSON) }
+//                 A full copy of people, items and settings, kept for 30 days.
 //
 // "Archiving" a year never moves data: each item remembers its year, and the
 // site simply shows items whose year matches settings.currentYear.
@@ -176,7 +178,35 @@ function localStore() {
       Object.assign(data.settings, clean(patch));
       commit();
     },
+    // backups live in their own key so they don't slow down everyday saves
+    async saveBackupIfMissing(id, backup) {
+      const all = readBackups();
+      if (all[id]) return false;
+      all[id] = backup;
+      writeBackups(all);
+      return true;
+    },
+    async listBackups() {
+      return Object.entries(readBackups()).map(([id, b]) => ({ ...b, id }));
+    },
+    async deleteBackup(id) {
+      const all = readBackups();
+      delete all[id];
+      writeBackups(all);
+    },
+    async replaceAll(snap) {
+      data = { people: snap.people.map((x) => ({ ...x })), items: snap.items.map((x) => ({ ...x })), settings: { ...snap.settings } };
+      commit();
+    },
   };
+}
+
+const BACKUP_KEY = "family-wishlist-backups-v1";
+function readBackups() {
+  try { return JSON.parse(localStorage.getItem(BACKUP_KEY)) || {}; } catch { return {}; }
+}
+function writeBackups(all) {
+  try { localStorage.setItem(BACKUP_KEY, JSON.stringify(all)); } catch { /* storage full: skip */ }
 }
 
 /* ------------------------------------------------------------------ cloud */
@@ -257,5 +287,36 @@ async function cloudStore(app, signOutAuth) {
         tx.update(itemRef(id), clean({ ...buyer, purchased: true }));
       }),
     updateSettings: (patch) => F.setDoc(settingsRef, clean(patch), { merge: true }),
+
+    /* ---- backups ---- */
+    saveBackupIfMissing: (id, backup) =>
+      F.runTransaction(db, async (tx) => {
+        const ref = F.doc(db, "backups", id);
+        if ((await tx.get(ref)).exists()) return false;
+        tx.set(ref, backup);
+        return true;
+      }),
+    async listBackups() {
+      const snap = await F.getDocs(F.collection(db, "backups"));
+      return snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+    },
+    deleteBackup: (id) => F.deleteDoc(F.doc(db, "backups", id)),
+    // Make the live lists exactly match a backup: overwrite what's in it,
+    // delete anything added since. Written in chunks (Firestore batch limit).
+    async replaceAll(snap) {
+      const ops = [];
+      const keepPeople = new Set(snap.people.map((p) => p.id));
+      const keepItems = new Set(snap.items.map((i) => i.id));
+      for (const p of state.people) if (!keepPeople.has(p.id)) ops.push((b) => b.delete(personRef(p.id)));
+      for (const i of state.items) if (!keepItems.has(i.id)) ops.push((b) => b.delete(itemRef(i.id)));
+      for (const p of snap.people) ops.push((b) => b.set(personRef(p.id), strip(p)));
+      for (const i of snap.items) ops.push((b) => b.set(itemRef(i.id), strip(i)));
+      ops.push((b) => b.set(settingsRef, clean(snap.settings || {})));
+      for (let n = 0; n < ops.length; n += 400) {
+        const batch = F.writeBatch(db);
+        ops.slice(n, n + 400).forEach((op) => op(batch));
+        await batch.commit();
+      }
+    },
   };
 }
