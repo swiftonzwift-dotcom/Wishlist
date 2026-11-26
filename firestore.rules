@@ -1,25 +1,32 @@
 rules_version = '2';
-// Anyone with the site link can read and edit the family lists (no passwords,
-// so it stays easy). These rules just keep the data tidy and block anything
-// outside the three collections the site uses.
+// Only someone signed in with the family password can read or change the lists.
+// The address below must match FAMILY_ACCOUNT_EMAIL in js/config.js.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isFamily() {
+      return request.auth != null
+          && request.auth.token.email == "family@example.com";
+    }
+
     match /people/{id} {
-      allow read: if true;
-      allow create, update: if request.resource.data.name is string
+      allow read: if isFamily();
+      allow create, update: if isFamily()
+                            && request.resource.data.name is string
                             && request.resource.data.name.size() > 0
                             && request.resource.data.name.size() <= 40;
       allow delete: if false; // names are only hidden (removed: true), never erased
     }
     match /items/{id} {
-      allow read, delete: if true;
-      allow create, update: if request.resource.data.title is string
+      allow read, delete: if isFamily();
+      allow create, update: if isFamily()
+                            && request.resource.data.title is string
                             && request.resource.data.title.size() <= 150
                             && request.resource.data.personId is string
                             && request.resource.data.size() <= 25;
     }
     match /meta/settings {
-      allow read, write: if true;
+      allow read, write: if isFamily();
     }
+    // Everything else is closed.
   }
 }

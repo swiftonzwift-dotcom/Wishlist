@@ -17,6 +17,11 @@ export const FIREBASE_CONFIG = {
   appId: "",
 };
 
+// The login name for the shared family password (README, Step 2). This is
+// only a label, not a real inbox, and it's fine for it to be public: the
+// password itself lives only in Firebase, never in this code.
+export const FAMILY_ACCOUNT_EMAIL = "family@example.com";
+
 // The families, and the names each one starts with the very first time the
 // site is opened. Someone can belong to more than one family (they then have
 // ONE wish list that both families see). After the first visit, names are
@@ -39,3 +44,10 @@ export const FAMILIES = [
     ],
   },
 ];
+
+// People on more than one family list open to this family by default.
+// Everyone else opens to the only family they're in.
+export const HOME_FAMILY = {
+  "Tim Smith": "mitchell",
+  "Ellen Smith": "mitchell",
+};

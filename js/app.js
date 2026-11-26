@@ -26,9 +26,9 @@ const getMeId = () => ls.get(ME_KEY) || "";
 const setMeId = (id) => (id ? ls.set(ME_KEY, id) : ls.del(ME_KEY));
 
 const PRIORITY = {
-  3: { label: "Most wanted", stars: "★★★" },
-  2: { label: "Really want", stars: "★★" },
-  1: { label: "Nice to have", stars: "★" },
+  3: { label: "Most wanted" },
+  2: { label: "Really want" },
+  1: { label: "Nice to have" },
 };
 
 const possessive = (n) => (/s$/i.test(n) ? `${n}’` : `${n}’s`);
@@ -60,7 +60,6 @@ const firstName = (p) => String((p && p.name) || "").trim().split(/\s+/)[0] || "
 const firstOf = (id, fallback = "someone") => (person(id) ? firstName(person(id)) : fallback);
 
 /* families: each person belongs to one or more; the toggle picks which to show */
-const FAM_KEY = "wishlist-family";
 const FAM_IDS = FAMILIES.map((f) => f.id);
 const ALL = "all";
 const famName = (id) => (FAMILIES.find((f) => f.id === id) || { name: id }).name;
@@ -68,21 +67,27 @@ function personFams(p) {
   const f = (p && Array.isArray(p.families) ? p.families : []).filter((x) => FAM_IDS.includes(x));
   return f.length ? f : FAM_IDS; // no family set (older data): show everywhere
 }
+// The family a person's screens open to (Tim and Ellen: Mitchell).
+function homeFamily(p) {
+  const fams = personFams(p);
+  return p && fams.includes(p.homeFamily) ? p.homeFamily : fams[0];
+}
+// The dropdown choice lasts for this visit only; every visit opens on your family.
+let famChoice = null;
 function currentFam() {
-  const saved = ls.get(FAM_KEY);
-  if (saved === ALL || FAM_IDS.includes(saved)) return saved;
+  if (famChoice === ALL || FAM_IDS.includes(famChoice)) return famChoice;
   const me = person(getMeId());
-  const mine = me ? personFams(me) : FAM_IDS;
-  return mine.length === 1 ? mine[0] : ALL;
+  return me ? homeFamily(me) : ALL;
 }
 const inFam = (p, fam = currentFam()) => fam === ALL || personFams(p).includes(fam);
 const famHeading = (fam = currentFam()) => (fam === ALL ? "Both families" : `${famName(fam)} family`);
 
-function famToggle() {
+function famPicker() {
   const cur = currentFam();
-  const opts = [...FAMILIES.map((f) => [f.id, `${f.name}s`]), [ALL, FAMILIES.length === 2 ? "Both" : "Everyone"]];
-  return `<div class="fam-toggle" role="group" aria-label="Show which family">${opts.map(([id, label]) =>
-    `<button type="button" class="${cur === id ? "on" : ""}" aria-pressed="${cur === id}" data-action="set-family" data-fam="${id}">${esc(label)}</button>`).join("")}</div>`;
+  const opts = [...FAMILIES.map((f) => [f.id, `${f.name} family`]), [ALL, FAMILIES.length === 2 ? "Both families" : "All families"]];
+  return `<label class="fam-picker"><span class="sr-only">Showing lists for</span>
+    <select data-change="set-family">${opts.map(([id, label]) =>
+      `<option value="${id}" ${cur === id ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>`;
 }
 
 function famChecks(selected) {
@@ -132,7 +137,7 @@ function route() {
 
 function render() {
   if (S.error) {
-    app.innerHTML = `<div class="center-msg"><p class="big-emoji">😕</p><h1>Can’t reach the family list</h1>
+    app.innerHTML = `<div class="center-msg"><h1>Can’t reach the family list</h1>
       <p>${esc(S.error)}</p><button class="btn primary" onclick="location.reload()">Try again</button></div>`;
     return;
   }
@@ -175,12 +180,12 @@ function render() {
 function topbar(toggle = false) {
   const me = person(getMeId());
   return `<header class="topbar"><div class="topbar-row">
-    <a class="brand" href="#/"><span aria-hidden="true">🎁</span> Wish Lists <span class="yr">${year()}</span></a>
-    ${me ? `<a class="me-chip" href="#/who" aria-label="You are ${esc(me.name)}. Tap to change.">${avatar(me, "sm")}<span>${esc(me.name)}</span><span class="chev" aria-hidden="true">▾</span></a>` : ""}
-  </div>${toggle ? famToggle() : ""}</header>`;
+    <a class="brand" href="#/">Wish Lists <span class="yr">${year()}</span></a>
+    ${toggle && me ? famPicker() : ""}
+  </div></header>`;
 }
 
-const back = (href = "#/", label = "All lists") => `<a class="back" href="${href}">‹ ${esc(label)}</a>`;
+const back = (href = "#/", label = "All lists") => `<a class="back" href="${href}">${esc(label)}</a>`;
 
 function modeBanner() {
   if (store.mode !== "local") return "";
@@ -193,31 +198,32 @@ function rolloverBanner() {
   if (Date.now() - s.rolledOverAt > 45 * 864e5) return "";
   if (ls.get("wishlist-banner-" + year())) return "";
   return `<div class="banner celebrate">
-    <p>🎉 <strong>Welcome to the ${year()} lists!</strong> Last year’s lists are saved in <a href="#/past/${s.archivedYear}">Past years</a>.</p>
+    <p><strong>Welcome to the ${year()} lists!</strong> Last year’s lists are saved in <a href="#/past/${s.archivedYear}">Past years</a>.</p>
     <button class="link-btn" data-action="dismiss-banner">Got it</button></div>`;
 }
 
 /* ---------------------------------------------------------- who are you */
 
 function viewWho(first) {
-  const people = activePeople();
-  const fam = currentFam();
-  const fams = fam === ALL ? FAMILIES : FAMILIES.filter((f) => f.id === fam);
-  const btn = (p) => `<button class="who-btn ${p.id === getMeId() ? "current" : ""}" data-action="choose-me" data-id="${esc(p.id)}">${avatar(p)}<span>${esc(p.name)}</span></button>`;
-  return `${first ? "" : topbar(true)}
+  const meId = getMeId();
+  const people = activePeople().slice().sort((x, y) => x.name.localeCompare(y.name));
+  return `${first ? "" : topbar()}
   <div class="page">
-    ${first ? `<div class="welcome"><p class="big-emoji">🎁</p><h1>Welcome to the family wish lists!</h1></div>${famToggle()}` : back()}
+    ${first ? `<h1 class="welcome">Family Wish Lists</h1>` : back()}
     <h2 class="who-q">${first ? "First, who are you?" : "Who are you?"}</h2>
     <p class="hint">Tap your name. This phone will remember you.</p>
-    ${fams.map((f) => `<h3 class="fam-h">${esc(f.name)} family</h3>
-      <div class="who-grid">${famSort(people.filter((p) => inFam(p, f.id)), f.id).map(btn).join("")}</div>`).join("")}
+    <ul class="name-list">
+      ${people.map((p) => `<li><button class="name-btn ${p.id === meId ? "current" : ""}" data-action="choose-me" data-id="${esc(p.id)}">${esc(p.name)}${p.id === meId ? `<span class="badge">You</span>` : ""}</button></li>`).join("")}
+    </ul>
     <details class="add-self">
       <summary>Not on the list? Add your name</summary>
-      <form data-form="add-self" class="inline-form">
-        <label class="sr-only" for="self-name">Your name</label>
-        <input id="self-name" name="name" placeholder="First and last name" maxlength="40" autocomplete="name" required>
-        <button class="btn primary">Add me</button>
-        ${famChecks(fam === ALL ? [] : [fam])}
+      <form data-form="add-self">
+        <div class="inline-form">
+          <label class="sr-only" for="self-name">Your name</label>
+          <input id="self-name" name="name" placeholder="First and last name" maxlength="40" autocomplete="name" required>
+          <button class="btn primary">Add me</button>
+        </div>
+        ${famChecks([])}
       </form>
     </details>
   </div>`;
@@ -237,7 +243,7 @@ function viewHome() {
     const meta = list.length
       ? `${plural(list.length, "wish", "wishes")}${bought ? ` · <span class="ok">${bought} bought</span>` : ""}`
       : `<span class="muted">No wishes yet</span>`;
-    return `<li><a class="person-row" href="#/list/${esc(p.id)}">${avatar(p)}<span class="pr-text"><strong>${esc(p.name)}</strong><small>${meta}</small></span><span class="arrow" aria-hidden="true">›</span></a></li>`;
+    return `<li><a class="person-row" href="#/list/${esc(p.id)}">${avatar(p)}<span class="pr-text"><strong>${esc(p.name)}</strong><small>${meta}</small></span></a></li>`;
   };
 
   return `${topbar(true)}
@@ -245,9 +251,7 @@ function viewHome() {
     ${rolloverBanner()}${modeBanner()}
     <h1 class="hello">Hi, ${esc(firstName(me))}!</h1>
     <a class="card-btn primary" href="#/list/${esc(me.id)}">
-      <span class="ico" aria-hidden="true">📝</span>
       <span class="cb-text"><strong>My wish list</strong><small>${mine.length ? `${plural(mine.length, "wish", "wishes")} · tap to add or change` : "Empty · tap to add your first wish"}</small></span>
-      <span class="arrow" aria-hidden="true">›</span>
     </a>
 
     <h2>${currentFam() === ALL ? "Everyone’s lists" : `${esc(famHeading())} lists`}</h2>
@@ -255,16 +259,16 @@ function viewHome() {
     <ul class="people">${others.map(row).join("") || `<li class="muted">No one else yet. <a href="#/family">Add names</a></li>`}</ul>
 
     <a class="card-btn" href="#/shopping">
-      <span class="ico" aria-hidden="true">🛍️</span>
       <span class="cb-text"><strong>Gifts I’m giving</strong><small>${giving.length ? `${plural(giving.length, "gift")} marked as bought` : "Nothing marked yet"}</small></span>
-      <span class="arrow" aria-hidden="true">›</span>
     </a>
 
     <nav class="links" aria-label="More">
-      <a href="#/family">👪 Add or edit names</a>
-      <a href="#/past">🗂️ Past years</a>
-      <a href="#/help">❓ How it works</a>
-      <button type="button" data-action="share">📤 Send this site to family</button>
+      <a href="#/who">Not ${esc(firstName(me))}? Switch person</a>
+      <a href="#/family">Add or edit names</a>
+      <a href="#/past">Past years</a>
+      <a href="#/help">How it works</a>
+      <button type="button" data-action="share">Send this site to family</button>
+      ${store.mode === "cloud" ? `<button type="button" data-action="sign-out">Sign out on this phone</button>` : ""}
     </nav>
   </div>`;
 }
@@ -275,7 +279,7 @@ function thumb(it) {
   const img = safeUrl(it.image);
   return `<div class="thumb">${img
     ? `<img src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-thumb>`
-    : `<span class="ph" aria-hidden="true">🎁</span>`}</div>`;
+    : `<span class="ph">No photo</span>`}</div>`;
 }
 
 function itemCard(it, mode) {
@@ -286,15 +290,15 @@ function itemCard(it, mode) {
   const owner = firstOf(it.personId, "them");
   const buyer = nameOf(it.purchasedBy, it.purchasedByName || "someone");
   const id = esc(it.id);
-  const viewBtn = url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">View item ↗</a>` : "";
+  const viewBtn = url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">View item</a>` : "";
 
   let actions = "";
   if (mode === "owner") {
-    actions = `${viewBtn}<button class="btn" data-action="edit-item" data-id="${id}">✏️ Edit</button><button class="btn danger-ghost" data-action="delete-item" data-id="${id}">🗑️ Delete</button>`;
+    actions = `${viewBtn}<button class="btn" data-action="edit-item" data-id="${id}">Edit</button><button class="btn danger-ghost" data-action="delete-item" data-id="${id}">Delete</button>`;
   } else if (mode === "viewer") {
     actions = viewBtn + (it.purchased
       ? `<button class="btn ghost small" data-action="unbuy-item" data-id="${id}">Undo</button>`
-      : `<button class="btn buy" data-action="buy-item" data-id="${id}">✓ I bought this</button>`);
+      : `<button class="btn buy" data-action="buy-item" data-id="${id}">I bought this</button>`);
     if (it.isSecret) actions += `<button class="btn ghost small" data-action="edit-item" data-id="${id}">Edit idea</button><button class="btn ghost small" data-action="delete-item" data-id="${id}">Delete idea</button>`;
   } else if (mode === "shopping") {
     actions = `${viewBtn}<button class="btn ghost small" data-action="unbuy-item" data-id="${id}">Not bought after all</button>`;
@@ -303,19 +307,19 @@ function itemCard(it, mode) {
   }
 
   return `<article class="item ${showBought ? "is-bought" : ""} ${it.isSecret ? "is-secret" : ""}">
-    ${showBought ? `<div class="bought-flag"><span aria-hidden="true">✓</span> PURCHASED</div>` : ""}
+    ${showBought ? `<div class="bought-flag">Purchased</div>` : ""}
     <div class="item-main">
-      <div class="thumb-wrap">${thumb(it)}${showBought ? `<span class="check-badge" aria-hidden="true">✓</span>` : ""}</div>
+      <div class="thumb-wrap">${thumb(it)}</div>
       <div class="item-info">
         <h3>${esc(it.title)}</h3>
         <div class="tags">
-          <span class="tag prio p${it.priority || 2}"><span aria-hidden="true">${pr.stars}</span> ${pr.label}</span>
+          <span class="tag prio p${it.priority || 2}">${pr.label}</span>
           ${it.price ? `<span class="tag">${esc(it.price)}</span>` : ""}
           ${url ? `<span class="tag site">${esc(it.siteName || siteNameFor(url))}</span>` : ""}
         </div>
         ${it.notes ? `<p class="notes">${esc(it.notes)}</p>` : ""}
-        ${it.isSecret && mode !== "owner" ? `<p class="secret-note">🤫 Gift idea from ${esc(nameOf(it.addedBy))}. ${esc(owner)} can’t see this.</p>` : ""}
-        ${showBought ? `<p class="bought-by">🎁 Bought by <strong>${esc(it.purchasedBy === (me && me.id) ? "you" : buyer)}</strong></p>` : ""}
+        ${it.isSecret && mode !== "owner" ? `<p class="secret-note">Gift idea from ${esc(nameOf(it.addedBy))}. ${esc(owner)} can’t see this.</p>` : ""}
+        ${showBought ? `<p class="bought-by">Bought by <strong>${esc(it.purchasedBy === (me && me.id) ? "you" : buyer)}</strong></p>` : ""}
       </div>
     </div>
     ${actions ? `<div class="item-actions">${actions}</div>` : ""}
@@ -338,13 +342,13 @@ function viewMyList(me) {
     ${back()}
     <h1>My wish list</h1>
     <p class="hint">Add things you’d love to get. Your family can see this list.
-      <strong>You won’t see what’s been bought</strong>, so it stays a surprise 🤫</p>
-    <button class="btn primary big-add" data-action="add-item" data-person="${esc(me.id)}">＋ Add a wish</button>
+      <strong>You won’t see what’s been bought</strong>, so it stays a surprise</p>
+    <button class="btn primary big-add" data-action="add-item" data-person="${esc(me.id)}">Add a wish</button>
     ${carry.items.length ? `<div class="carry"><p>You had ${plural(carry.items.length, "wish", "wishes")} in ${carry.year} that nobody bought.</p>
       <button class="btn" data-action="copy-last-year" data-person="${esc(me.id)}">Bring them back</button></div>` : ""}
     <div class="items">
       ${items.map((i) => itemCard(i, "owner")).join("") ||
-        `<div class="empty"><p class="big-emoji">✨</p><p>Your list is empty.</p><p class="muted">Tap <strong>Add a wish</strong>. You can paste a link from any store, or just type an idea like “warm socks, size M”.</p></div>`}
+        `<div class="empty"><p>Your list is empty.</p><p class="muted">Tap <strong>Add a wish</strong>. You can paste a link from any store, or just type an idea like “warm socks, size M”.</p></div>`}
     </div>
   </div>`;
 }
@@ -358,15 +362,15 @@ function viewTheirList(p) {
     ${back()}
     <div class="list-head">${avatar(p, "lg")}<div><h1>${esc(possessive(p.name))} wish list</h1>
       <p class="muted">${items.length ? `${plural(items.length, "wish", "wishes")} · ${open} still available` : "No wishes yet"}</p></div></div>
-    ${items.length ? `<p class="hint">Bought something? Tap <strong>✓ I bought this</strong> so nobody else buys it. ${name} won’t see it.</p>` : ""}
+    ${items.length ? `<p class="hint">Bought something? Tap <strong>I bought this</strong> so nobody else buys it. ${name} won’t see it.</p>` : ""}
     <div class="items">
       ${items.map((i) => itemCard(i, "viewer")).join("") ||
-        `<div class="empty"><p class="big-emoji">📭</p><p>${name} hasn’t added any wishes yet.</p><p class="muted">Check back later, or add a gift idea below.</p></div>`}
+        `<div class="empty"><p>${name} hasn’t added any wishes yet.</p><p class="muted">Check back later, or add a gift idea below.</p></div>`}
     </div>
     <section class="secret-box">
-      <h2>💡 Have a gift idea for ${name}?</h2>
+      <h2>Have a gift idea for ${name}?</h2>
       <p>Add it here to share with everyone except ${name}.</p>
-      <button class="btn" data-action="add-item" data-person="${esc(p.id)}" data-secret="1">＋ Add a secret idea</button>
+      <button class="btn" data-action="add-item" data-person="${esc(p.id)}" data-secret="1">Add a secret idea</button>
     </section>
     <p class="switch-note">Is this your list, or are you helping ${name} with it?
       <button class="link-btn" data-action="choose-me" data-id="${esc(p.id)}" data-go="list">Switch to ${esc(possessive(firstName(p)))} own view</button></p>
@@ -397,7 +401,7 @@ function viewShopping() {
     <p class="hint">Everything you’ve marked as bought this year, so you can keep track.</p>
     ${Object.keys(groups).map((pid) => `<h2 class="group-h">${avatar(person(pid))} For ${esc(nameOf(pid))}</h2>
       <div class="items">${groups[pid].map((i) => itemCard(i, "shopping")).join("")}</div>`).join("") ||
-      `<div class="empty"><p class="big-emoji">🛍️</p><p>Nothing yet.</p><p class="muted">Open someone’s list and tap <strong>✓ I bought this</strong> on a gift you’ve bought.</p></div>`}
+      `<div class="empty"><p>Nothing yet.</p><p class="muted">Open someone’s list and tap <strong>I bought this</strong> on a gift you’ve bought.</p></div>`}
   </div>`;
 }
 
@@ -416,7 +420,7 @@ function viewFamily() {
       <div class="inline-form">
         <label class="sr-only" for="new-name">New name</label>
         <input id="new-name" name="name" placeholder="First and last name" maxlength="40" required>
-        <button class="btn primary">＋ Add</button>
+        <button class="btn primary">Add</button>
       </div>
       ${famChecks(fam === ALL ? [] : [fam])}
     </form>
@@ -449,7 +453,7 @@ function viewPast() {
     <ul class="people">
       ${years.map((y) => {
         const n = S.items.filter((i) => Number(i.year) === y).length;
-        return `<li><a class="person-row" href="#/past/${y}"><span class="ico-yr">${y}</span><span class="pr-text"><strong>${y} wish lists</strong><small>${plural(n, "wish", "wishes")}</small></span><span class="arrow">›</span></a></li>`;
+        return `<li><a class="person-row" href="#/past/${y}"><span class="ico-yr">${y}</span><span class="pr-text"><strong>${y} wish lists</strong><small>${plural(n, "wish", "wishes")}</small></span></a></li>`;
       }).join("") || `<li class="empty-inline muted">Nothing saved yet. The ${year()} lists will be saved here in January ${next}.</li>`}
     </ul>
     <section class="secret-box">
@@ -471,7 +475,7 @@ function viewPastYear(y) {
     <p class="hint">Saved for remembering. These can’t be changed.</p>
     <ul class="people">${ppl.map((p) => {
       const list = itemsFor(p.id, y);
-      return `<li><a class="person-row" href="#/past/${y}/${esc(p.id)}">${avatar(p)}<span class="pr-text"><strong>${esc(p.name)}</strong><small>${plural(list.length, "wish", "wishes")} · ${list.filter((i) => i.purchased).length} bought</small></span><span class="arrow">›</span></a></li>`;
+      return `<li><a class="person-row" href="#/past/${y}/${esc(p.id)}">${avatar(p)}<span class="pr-text"><strong>${esc(p.name)}</strong><small>${plural(list.length, "wish", "wishes")} · ${list.filter((i) => i.purchased).length} bought</small></span></a></li>`;
     }).join("") || `<li class="muted">No lists that year.</li>`}</ul>
   </div>`;
 }
@@ -491,9 +495,9 @@ function viewPastPerson(y, pid) {
 
 function viewHelp() {
   const qa = [
-    ["How do I add something I want?", "Tap <strong>My wish list</strong>, then <strong>＋ Add a wish</strong>. Paste a link from any store (we’ll try to fetch the picture and name), or just type what you’d like."],
+    ["How do I add something I want?", "Tap <strong>My wish list</strong>, then <strong>Add a wish</strong>. Paste a link from any store (we’ll try to fetch the picture and name), or just type what you’d like."],
     ["How do I copy a link from a store?", "On your phone, open the item in the store’s app or website, tap the <strong>Share</strong> button and choose <strong>Copy</strong> (or <strong>Copy link</strong>). Then come back here and tap <strong>Paste</strong>."],
-    ["How do I mark a gift as bought?", "Open the person’s list and tap <strong>✓ I bought this</strong>. Everyone else will see a big green <strong>PURCHASED</strong> tag so they don’t buy it too."],
+    ["How do I mark a gift as bought?", "Open the person’s list and tap <strong>I bought this</strong>. Everyone else will see a big green <strong>PURCHASED</strong> tag so they don’t buy it too."],
     ["Can people see what was bought for them?", "No. When you look at your own list, bought items look exactly the same as before. It stays a surprise."],
     ["What’s a secret idea?", "On someone else’s list you can add a gift idea for them. Everyone can see it except that person. It’s handy for things you know they’d love."],
     ["I marked something by mistake.", "Tap <strong>Undo</strong> on the item, or go to <strong>Gifts I’m giving</strong> and tap <strong>Not bought after all</strong>."],
@@ -599,7 +603,7 @@ function itemDialog({ personId, item, secret }) {
   const heading = isEdit ? (isSecret ? "Edit gift idea" : "Edit wish") : isSecret ? `Gift idea for ${esc(owner.name)}` : "Add a wish";
   const d = dialog(`<form class="item-form" novalidate>
     <h2>${heading}</h2>
-    ${isSecret ? `<p class="hint">🤫 ${esc(owner.name)} won’t see this.</p>` : ""}
+    ${isSecret ? `<p class="hint">${esc(owner.name)} won’t see this.</p>` : ""}
     <div class="field">
       <label for="f-url">Link to the item <em>(optional)</em></label>
       <div class="row">
@@ -616,7 +620,7 @@ function itemDialog({ personId, item, secret }) {
     <label class="field"><span>Details <em>(optional)</em></span>
       <textarea name="notes" rows="3" maxlength="500" placeholder="Size, color, model…">${esc(it.notes || "")}</textarea></label>
     <fieldset class="field prio-pick"><legend>How much ${isSecret ? "would they" : "do you"} want it?</legend>
-      ${[1, 2, 3].map((n) => `<label class="chip"><input type="radio" name="priority" value="${n}" ${Number(it.priority || 2) === n ? "checked" : ""}><span><span aria-hidden="true">${PRIORITY[n].stars}</span> ${PRIORITY[n].label}</span></label>`).join("")}
+      ${[1, 2, 3].map((n) => `<label class="chip"><input type="radio" name="priority" value="${n}" ${Number(it.priority || 2) === n ? "checked" : ""}><span>${PRIORITY[n].label}</span></label>`).join("")}
     </fieldset>
     <p class="form-error" role="alert" hidden></p>
     <div class="dlg-actions"><button type="button" class="btn ghost" data-cancel>Cancel</button>
@@ -633,7 +637,7 @@ function itemDialog({ personId, item, secret }) {
     const url = normalizeUrl(urlIn.value);
     if (!url && !image) { prev.hidden = true; return; }
     prev.hidden = false;
-    prev.innerHTML = `${image ? `<img src="${esc(image)}" alt="" referrerpolicy="no-referrer" data-thumb>` : `<span class="ph">🎁</span>`}
+    prev.innerHTML = `${image ? `<img src="${esc(image)}" alt="" referrerpolicy="no-referrer" data-thumb>` : `<span class="ph">No photo</span>`}
       <div><strong>${esc(siteName || siteNameFor(url) || "Link")}</strong>${msg ? `<small>${esc(msg)}</small>` : ""}
       ${image ? `<button type="button" class="link-btn" data-noimg>Remove picture</button>` : ""}</div>`;
   }
@@ -701,12 +705,12 @@ function itemDialog({ personId, item, secret }) {
       priority: Number(form.elements.priority.value) || 2,
     };
     if (isEdit) {
-      save(store.updateItem(it.id, data), "Saved ✓");
+      save(store.updateItem(it.id, data), "Saved");
     } else {
       save(store.addItem({
         ...data, id: uid(), personId, year: year(), isSecret, addedBy: me.id, createdAt: Date.now(),
         purchased: false, purchasedBy: null, purchasedByName: null, purchasedAt: null,
-      }), isSecret ? "Idea added 🤫" : "Added to your list ✓");
+      }), isSecret ? "Idea added" : "Added to your list");
     }
     d.close();
   });
@@ -723,15 +727,16 @@ function nameTaken(name, exceptId) {
 function newPerson(name, families) {
   const order = Math.max(-1, ...S.people.map((p) => p.order ?? 0)) + 1;
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person";
-  return { id: `${slug}-${uid().slice(-5)}`, name, families, order, createdAt: Date.now() };
+  return { id: `${slug}-${uid().slice(-5)}`, name, families, homeFamily: families[0], order, createdAt: Date.now() };
 }
 
 const actions = {
   "choose-me"(el) {
     setMeId(el.dataset.id);
+    famChoice = null;
     location.hash = el.dataset.go === "list" ? `#/list/${el.dataset.id}` : "#/";
     render();
-    toast(`Hi, ${nameOf(el.dataset.id)}!`);
+    toast(`Hi, ${firstOf(el.dataset.id)}!`);
   },
   "add-item"(el) {
     itemDialog({ personId: el.dataset.person, secret: el.dataset.secret === "1" });
@@ -754,12 +759,12 @@ const actions = {
     const ok = await confirmBox({
       title: "Did you buy this?",
       text: `<strong>${esc(it.title)}</strong> for ${esc(owner)}.<br><br>Everyone except ${esc(owner)} will see it’s been bought, so nobody buys it twice.`,
-      ok: "✓ Yes, I bought it",
+      ok: "Yes, I bought it",
     });
     if (!ok) return;
     try {
       await store.markBought(it.id, { purchasedBy: me.id, purchasedByName: me.name, purchasedAt: Date.now() });
-      toast("Marked as bought 🎁");
+      toast("Marked as bought");
     } catch (e) {
       if (e.code === "already-bought") confirmBox({ title: "Someone beat you to it!", text: "This was just marked as bought by someone else. You may want to pick a different gift.", ok: "OK" });
       else toast(e.code === "unavailable" ? "You seem to be offline. Try again when connected." : "Couldn’t save that. Please try again.");
@@ -786,7 +791,8 @@ const actions = {
     const res = await personDialog({ title: "Edit name", value: p.name, families: personFams(p), ok: "Save" });
     if (!res || !res.name) return;
     if (nameTaken(res.name, p.id)) return toast(`${res.name} is already on the list.`);
-    save(store.updatePerson(p.id, { name: res.name, families: res.families }), "Saved ✓");
+    const home = res.families.includes(p.homeFamily) ? p.homeFamily : res.families[0];
+    save(store.updatePerson(p.id, { name: res.name, families: res.families, homeFamily: home }), "Saved");
   },
   async "remove-person"(el) {
     const p = person(el.dataset.id);
@@ -804,20 +810,20 @@ const actions = {
     const p = person(el.dataset.id);
     if (!p) return;
     if (nameTaken(p.name, p.id)) return toast(`${p.name} is already on the list.`);
-    save(store.updatePerson(p.id, { removed: false, removedAt: null }), `${p.name} is back ✓`);
+    save(store.updatePerson(p.id, { removed: false, removedAt: null }), `${p.name} is back`);
   },
   async "copy-last-year"(el) {
     const pid = el.dataset.person;
     const { year: y, items } = carryOverCandidates(pid);
     if (!items.length) return;
-    const ok = await confirmBox({ title: `Bring back ${plural(items.length, "wish", "wishes")} from ${y}?`, text: items.map((i) => `• ${esc(i.title)}`).join("<br>"), ok: "Bring them back" });
+    const ok = await confirmBox({ title: `Bring back ${plural(items.length, "wish", "wishes")} from ${y}?`, text: items.map((i) => esc(i.title)).join("<br>"), ok: "Bring them back" });
     if (!ok) return;
     const now = Date.now();
     for (const [n, i] of items.entries()) {
       const { id, purchased, purchasedBy, purchasedByName, purchasedAt, ...rest } = i;
       save(store.addItem({ ...rest, id: uid(), year: year(), copiedFrom: id, createdAt: now + n, purchased: false, purchasedBy: null, purchasedByName: null, purchasedAt: null }));
     }
-    toast("Added back to your list ✓");
+    toast("Added back to your list");
   },
   async "start-next-year"() {
     const cur = year();
@@ -833,7 +839,7 @@ const actions = {
   },
   async share() {
     const url = location.href.split("#")[0];
-    const data = { title: "Family Wish Lists", text: "Here’s our family wish list site. Tap your name to start!", url };
+    const data = { title: "Family Wish Lists", text: "Here’s our family wish list site. Ask me for the family password, then tap your name to start!", url };
     try {
       if (navigator.share) return await navigator.share(data);
       await navigator.clipboard.writeText(url);
@@ -843,9 +849,12 @@ const actions = {
       prompt("Copy this link and send it to your family:", url);
     }
   },
-  "set-family"(el) {
-    ls.set(FAM_KEY, el.dataset.fam);
-    render();
+  async "sign-out"() {
+    const ok = await confirmBox({ title: "Sign out on this phone?", text: "You’ll need the family password to open the lists again.", ok: "Sign out" });
+    if (!ok) return;
+    await store.signOut();
+    location.hash = "";
+    location.reload();
   },
   "dismiss-banner"() {
     ls.set("wishlist-banner-" + year(), "1");
@@ -860,10 +869,23 @@ document.addEventListener("click", (e) => {
   actions[el.dataset.action](el);
 });
 
+document.addEventListener("change", (e) => {
+  if (e.target.matches("[data-show-pw]")) {
+    const pw = e.target.closest("form").elements.password;
+    pw.type = e.target.checked ? "text" : "password";
+    return;
+  }
+  const el = e.target.closest("[data-change=set-family]");
+  if (!el) return;
+  famChoice = el.value;
+  render();
+});
+
 document.addEventListener("submit", (e) => {
   const form = e.target.closest("form[data-form]");
   if (!form) return;
   e.preventDefault();
+  if (form.dataset.form === "password") return unlock(form);
   const name = (form.elements.name.value || "").trim().replace(/\s+/g, " ");
   if (!name) return;
   if (nameTaken(name)) return toast(`${name} is already on the list.`);
@@ -871,7 +893,7 @@ document.addEventListener("submit", (e) => {
   if (!families.length) return toast("Tick which family list they belong to.");
   const p = newPerson(name, families);
   form.elements.name.value = "";
-  save(store.addPerson(p), `${name} added ✓`);
+  save(store.addPerson(p), `${name} added`);
   if (form.dataset.form === "add-self") {
     setMeId(p.id);
     location.hash = "#/";
@@ -885,7 +907,7 @@ document.addEventListener("error", (e) => {
   if (t && t.tagName === "IMG" && t.hasAttribute("data-thumb")) {
     const ph = document.createElement("span");
     ph.className = "ph";
-    ph.textContent = "🎁";
+    ph.textContent = "No photo";
     t.replaceWith(ph);
   }
 }, true);
@@ -912,6 +934,57 @@ function maybeRollover() {
 
 /* ============================================================== start */
 
+function viewPassword(msg = "") {
+  return `<div class="page narrow">
+    <h1 class="welcome">Family Wish Lists</h1>
+    <p class="hint">Enter the family password. You only need to do this once on each phone.</p>
+    <form data-form="password" class="password-form">
+      <label class="field"><span>Family password</span>
+        <input name="password" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+      </label>
+      <label class="show-pw"><input type="checkbox" data-show-pw> Show password</label>
+      <p class="form-error" role="alert" ${msg ? "" : "hidden"}>${esc(msg)}</p>
+      <button class="btn primary wide">Open the lists</button>
+    </form>
+    <p class="muted small-print">Don’t have it? Ask a family member who’s already using the lists.</p>
+  </div>`;
+}
+
+function start() {
+  store.subscribe(
+    (snap) => {
+      S = { ...S, ...snap, ready: true, error: "" };
+      maybeRollover();
+      render();
+    },
+    (err) => {
+      S.error = err && err.code === "permission-denied"
+        ? "The family database isn’t allowing access. Try signing in again, or check the setup steps in the README."
+        : "Please check your internet connection.";
+      render();
+    },
+  );
+}
+
+async function unlock(form) {
+  const pw = form.elements.password.value;
+  if (!pw) return;
+  const btn = form.querySelector("button");
+  btn.disabled = true;
+  btn.textContent = "Checking…";
+  try {
+    store = await store.unlock(pw);
+    start();
+  } catch (e) {
+    const code = (e && e.code) || "";
+    const msg = code === "auth/too-many-requests" ? "Too many tries. Please wait a few minutes and try again."
+      : code === "auth/network-request-failed" ? "You seem to be offline. Check your internet and try again."
+      : "That password isn’t right. Check the spelling and try again.";
+    app.innerHTML = viewPassword(msg);
+    app.querySelector("input[name=password]").focus();
+  }
+}
+
 (async function init() {
   try {
     store = await createStore();
@@ -921,17 +994,9 @@ function maybeRollover() {
     render();
     return;
   }
-  store.subscribe(
-    (snap) => {
-      S = { ...S, ...snap, ready: true, error: "" };
-      maybeRollover();
-      render();
-    },
-    (err) => {
-      S.error = err && err.code === "permission-denied"
-        ? "The family database isn’t allowing access. (Setup tip: check the Firestore rules in the README.)"
-        : "Please check your internet connection.";
-      render();
-    },
-  );
+  if (store.locked) {
+    app.innerHTML = viewPassword();
+    return;
+  }
+  start();
 })();

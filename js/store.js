@@ -3,7 +3,7 @@
 //  - local: this browser only (demo mode, used until Firebase is set up)
 //
 // Data model
-//  people/{id}   { name, families: ["smith", ...], order, createdAt, removed?, removedAt? }
+//  people/{id}   { name, families: ["smith", ...], homeFamily, order, createdAt, removed?, removedAt? }
 //  items/{id}    { personId, year, title, url, image, siteName, price, notes,
 //                  priority (1-3), isSecret, addedBy, createdAt, copiedFrom?,
 //                  purchased, purchasedBy, purchasedByName, purchasedAt }
@@ -12,7 +12,7 @@
 // "Archiving" a year never moves data: each item remembers its year, and the
 // site simply shows items whose year matches settings.currentYear.
 
-import { FIREBASE_CONFIG, FAMILIES } from "./config.js";
+import { FIREBASE_CONFIG, FAMILIES, HOME_FAMILY, FAMILY_ACCOUNT_EMAIL } from "./config.js";
 
 const FIREBASE_VERSION = "10.12.2";
 
@@ -43,6 +43,10 @@ function seedPeople() {
       if (!p.families.includes(fam.id)) p.families.push(fam.id);
     }
   }
+  for (const p of byName.values()) {
+    const home = HOME_FAMILY[p.name];
+    p.homeFamily = p.families.includes(home) ? home : p.families[0];
+  }
   return [...byName.values()];
 }
 
@@ -57,14 +61,42 @@ export function isCloudConfigured() {
   return !!(k && !/^PASTE/i.test(k) && FIREBASE_CONFIG.projectId);
 }
 
+/**
+ * Demo mode: returns the local store straight away.
+ * Cloud mode: if this device has already entered the family password, returns
+ * the cloud store. Otherwise returns { locked: true, unlock(password) }, and
+ * unlock() resolves to the cloud store once the password is right.
+ */
 export async function createStore() {
-  return isCloudConfigured() ? cloudStore(FIREBASE_CONFIG) : localStore();
+  if (!isCloudConfigured()) return localStore();
+  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
+  const [{ initializeApp }, A] = await Promise.all([
+    import(`${base}/firebase-app.js`),
+    import(`${base}/firebase-auth.js`),
+  ]);
+  const app = initializeApp(FIREBASE_CONFIG);
+  const auth = A.getAuth(app);
+  // Stay signed in on this device until someone taps "Sign out".
+  await A.setPersistence(auth, A.browserLocalPersistence).catch(() => {});
+  const user = await new Promise((resolve) => {
+    const stop = A.onAuthStateChanged(auth, (u) => { stop(); resolve(u); });
+  });
+  const signOut = () => A.signOut(auth);
+  if (user) return cloudStore(app, signOut);
+  return {
+    mode: "cloud",
+    locked: true,
+    async unlock(password) {
+      await A.signInWithEmailAndPassword(auth, FAMILY_ACCOUNT_EMAIL, password);
+      return cloudStore(app, signOut);
+    },
+  };
 }
 
 /* ------------------------------------------------------------------ local */
 
 function localStore() {
-  const KEY = "family-wishlist-data-v2";
+  const KEY = "family-wishlist-data-v3";
   const listeners = new Set();
   const read = () => {
     try {
@@ -149,13 +181,8 @@ function localStore() {
 
 /* ------------------------------------------------------------------ cloud */
 
-async function cloudStore(cfg) {
-  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
-  const [{ initializeApp }, F] = await Promise.all([
-    import(`${base}/firebase-app.js`),
-    import(`${base}/firebase-firestore.js`),
-  ]);
-  const app = initializeApp(cfg);
+async function cloudStore(app, signOutAuth) {
+  const F = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`);
   let db;
   try {
     db = F.initializeFirestore(app, {
@@ -207,6 +234,11 @@ async function cloudStore(cfg) {
 
   return {
     mode: "cloud",
+    async signOut() {
+      await signOutAuth();
+      // Also wipe the copy of the lists saved on this device.
+      try { await F.terminate(db); await F.clearIndexedDbPersistence(db); } catch {}
+    },
     subscribe(fn, onError) {
       listeners.add(fn);
       if (onError) errorListeners.add(onError);

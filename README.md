@@ -1,26 +1,26 @@
-# 🎁 Family Wish Lists
+# Family Wish Lists
 
 A simple, phone-friendly wish list site for the family. There are no accounts or passwords: everyone taps their name and starts.
 
 ## What it does
 
 **Two families, one site**
-- There's a **Smith** list and a **Mitchell** list. A switch at the top (**Smiths · Mitchells · Both**) picks which family you're looking at. Each phone remembers its choice, and it starts on your own family.
+- There's a **Smith** list and a **Mitchell** list. Everyone opens on their own family, and a dropdown at the top shows the other family, or both, for anyone shopping across both. Tim and Ellen, who are on both lists, open on the Mitchell list.
 - Someone can be in both families (Tim and Ellen are). They have **one** wish list that both families see, so purchases are never doubled up across families.
 - In-laws are on the right list even with a different last name: each person is ticked into their family, rather than matched by surname.
 
 **For everyone**
-- **Tap your name** the first time. The phone remembers you, and you can switch any time from the top corner.
+- **Family password.** The first time on each phone, enter the family password, then tap your name. The phone remembers both.
 - **Add, rename or remove names.** Anyone can add a name, fix a spelling, or change which family someone is in. To remove a name, you have to type **APPROVE** in capital letters, so nobody does it by accident. Removed names can be brought back.
 
 **My wish list (your own list)**
-- **＋ Add a wish:** paste a link from any store and the site tries to fetch the item's picture and name automatically. If a store blocks that, you just type the name. You can also add a wish with no link, like "warm socks, size M".
-- Add a price, details (size, color…) and how much you want it: ★ Nice to have, ★★ Really want, ★★★ Most wanted.
+- **Add a wish:** paste a link from any store and the site tries to fetch the item's picture and name automatically. If a store blocks that, you just type the name. You can also add a wish with no link, like "warm socks, size M".
+- Add a price, details (size, color…) and how much you want it: Nice to have, Really want, or Most wanted.
 - Edit or delete your wishes at any time.
 - **No spoilers:** you never see what has been bought for you or any secret ideas about you.
 
 **Someone else's list**
-- **✓ I bought this** marks the item with a big green **PURCHASED** banner and a ✓ badge, plus who bought it, so nobody doubles up. If two people tap at the same moment, the second person is told someone beat them to it.
+- **I bought this** marks the item with a green **Purchased** banner and who bought it, so nobody doubles up. If two people tap at the same moment, the second person is told someone beat them to it.
 - **Undo** a mistaken mark.
 - **Secret gift ideas:** add an idea to someone's list. Everyone except that person can see it.
 - **Gifts I'm giving:** one page listing everything you've marked as bought.
@@ -55,16 +55,30 @@ You'll do two things: (1) make the site public with GitHub Pages, and (2) connec
 2. Click **Create a project**, name it (e.g. `family-wishlist`) and click through. You can turn Google Analytics off.
 3. In the left menu choose **Build → Firestore Database → Create database**. Pick a location near you and choose **Start in production mode**.
 4. Open the **Rules** tab, delete what's there, paste in everything from [`firestore.rules`](firestore.rules) and click **Publish**.
-5. Click the ⚙️ gear (top left) → **Project settings**. Under **Your apps**, click the **`</>`** (web) button, give it a nickname and click **Register app**. (Skip "Firebase Hosting".)
+5. Click the gear icon (top left) → **Project settings**. Under **Your apps**, click the **`</>`** (web) button, give it a nickname and click **Register app**. (Skip "Firebase Hosting".)
 6. Firebase shows a block of code with `const firebaseConfig = { apiKey: "...", ... }`. Copy those values into [`js/config.js`](js/config.js), replacing the placeholders, and save/commit the file.
-7. Open your site. The blue "Demo mode" message should be gone, and the starting names appear. Send the link to the family with the **📤 Send this site to family** button.
+7. **Set the family password.** In the left menu choose **Build → Authentication → Get started**, pick **Email/Password**, switch on the first toggle (**Email/Password**) and click **Save**.
+8. Open the **Users** tab → **Add user**. Email: `family@example.com`. Password: the family password (see the tips below). Click **Add user**.
+9. Still in Authentication, open **Settings → User actions** and **untick "Enable create (sign-up)"**, then **Save**. This stops anyone from making their own account.
+10. Open your site. It asks for the family password. Enter it, and the starting names appear. Send the link to the family with the **Send this site to family** button.
 
 The free Firebase plan is far more than a family needs.
 
+### The family password
+
+- **Choose three or four ordinary words with dashes**, e.g. `maple-sleigh-pancake-otter`. It's easy to text, easy to type on a phone, and very hard to guess. Avoid names, birthdays or anything posted online.
+- **Text it separately from the link**, or tell people in person.
+- **It isn't anywhere in this code.** Firebase stores it (scrambled), so someone reading the GitHub repository can't find it. The repository shows only the login name `family@example.com`, which is useless without the password. Firebase also slows down anyone who keeps guessing.
+- **Each phone enters it once** and stays signed in. **Sign out on this phone** (at the bottom of the home screen) is there for shared computers.
+- **To change it:** Firebase → Authentication → Users → the `⋮` menu next to `family@example.com` → **Reset password**. That only sends an email, which won't arrive at this made-up address. Instead, delete the user and add it again with the new password. Everyone then enters the new password once.
+
+### Keeping the site out of search engines
+
+The site tells search engines not to list it (a `noindex` tag and a `robots.txt` file), and the address is only known to people you send it to. The lists themselves are protected by the password, not by the address being secret.
+
 ### Good to know
 
-- **Privacy:** there are no passwords, so anyone who has the link can see and edit the lists. Only share the link with family.
-- **Link pictures** come from the free [microlink.io](https://microlink.io) preview service (about 50 lookups per day without an account). Some stores, sometimes Amazon, block previews; the item still saves fine with a gift-box picture.
+- **Link pictures** come from the free [microlink.io](https://microlink.io) preview service (about 50 lookups per day without an account). Some stores, sometimes Amazon, block previews; the item still saves fine without a picture.
 - **Changing the starting names** only matters before the first visit. Edit `FAMILIES` in `js/config.js`. After that, manage names inside the site.
 
 ## For tinkerers
