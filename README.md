@@ -20,7 +20,7 @@ A simple, phone-friendly wish list site for the family. There are no accounts or
 - **No spoilers:** you never see what has been bought for you or any secret ideas about you.
 
 **Someone else's list**
-- **I bought this** marks the item with a green **Purchased** banner and who bought it, so nobody doubles up. If two people tap at the same moment, the second person is told someone beat them to it.
+- **I bought this** turns the item green with a black **Purchased** label and who bought it, so nobody doubles up. If two people tap at the same moment, the second person is told someone beat them to it.
 - **Undo** a mistaken mark.
 - **Secret gift ideas:** add an idea to someone's list. Everyone except that person can see it.
 - **Gifts I'm giving:** one page listing everything you've marked as bought.
@@ -88,7 +88,8 @@ Plain HTML, CSS and JavaScript (ES modules) with no build step.
 | File | What it is |
 | --- | --- |
 | `index.html` | Page shell |
-| `css/styles.css` | All styling (mobile-first, light and dark) |
+| `DESIGN.md` | The design system: colours, type, components and rules |
+| `css/styles.css` | All styling, built from the design system's tokens |
 | `js/app.js` | Screens, dialogs and actions |
 | `js/store.js` | Data storage: Firebase Firestore, or this-device-only demo mode |
 | `js/preview.js` | Link cleanup and picture/name lookup |
