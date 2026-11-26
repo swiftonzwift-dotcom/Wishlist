@@ -253,17 +253,17 @@ function viewHome() {
     ${rolloverBanner()}${modeBanner()}
 
     ${sectionLabel(`My ${year()} wish list`)}
-    <div class="tile-row">
-      <button class="tile tile--electric" data-action="add-item" data-person="${esc(me.id)}">Add a wish</button>
-      <a class="tile tile--paper" href="#/list/${esc(me.id)}">My list<span class="num">${mine.length}</span></a>
-      <a class="tile tile--lemon" href="#/shopping">I’m giving<span class="num">${giving.length}</span></a>
-      ${pastYears().length ? `<a class="tile tile--mint" href="#/past">Past years<span class="num">${pastYears().length}</span></a>` : ""}
+    <div class="action-row">
+      <button class="tile tile--primary" data-action="add-item" data-person="${esc(me.id)}">Add a wish</button>
+      <a class="tile tile--secondary" href="#/list/${esc(me.id)}">My list<span class="num">${mine.length}</span></a>
+      <a class="tile tile--secondary" href="#/shopping">I’m giving<span class="num">${giving.length}</span></a>
     </div>
 
     ${sectionLabel(currentFam() === ALL ? "Everyone" : esc(famHeading()), `<a href="#/family">Edit names</a>`)}
     <ul class="row-list">${others.map(row).join("") || `<li class="empty">No one else yet. <a href="#/family">Add names</a></li>`}</ul>
 
     <ul class="foot-links">
+      ${pastYears().length ? `<li><a href="#/past">Past years</a></li>` : ""}
       <li><a href="#/help">How it works</a></li>
       <li><button type="button" data-action="share">Send this site to family</button></li>
       <li><a href="#/who">Not ${esc(firstName(me))}? Switch person</a></li>
@@ -369,7 +369,7 @@ function viewTheirList(p) {
       <button class="btn btn--primary btn--block" data-action="add-item" data-person="${esc(p.id)}" data-secret="1">Add a secret idea</button>
     </section>
     <p class="muted" style="margin-top:24px;font-size:15px">Is this your list, or are you helping ${name} with it?
-      <button class="btn btn--ghost btn--small" style="color:var(--on-ink)" data-action="choose-me" data-id="${esc(p.id)}" data-go="list">Switch to ${esc(possessive(firstName(p)))} own view</button></p>
+      <button class="btn btn--ghost btn--small" style="color:var(--on-page)" data-action="choose-me" data-id="${esc(p.id)}" data-go="list">Switch to ${esc(possessive(firstName(p)))} own view</button></p>
   </div>`;
 }
 
@@ -521,7 +521,7 @@ function viewAdmin() {
     <section class="panel">
       <h2>Start ${next} early?</h2>
       <p>This saves the ${year()} lists under Past years and gives everyone a fresh list now. It happens on its own on January 1, so you normally don’t need this.</p>
-      <button class="btn btn--on-ink btn--block" data-action="start-next-year">Save ${year()} and start ${next}</button>
+      <button class="btn btn--outline btn--block" data-action="start-next-year">Save ${year()} and start ${next}</button>
     </section>
   </div>`;
 }
