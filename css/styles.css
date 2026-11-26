@@ -24,7 +24,7 @@
   --mint: #5cf08a;
   --bubblegum: #ff5cc0;
   --sky: #73d2f5;
-  --danger: #e5243b;
+  --danger: #c8102e;
 
   --r-pill: 999px;
   --r-control: 14px;
@@ -55,7 +55,10 @@ h1, h2, h3 { margin: 0; line-height: 1.15; }
 p { margin: 0; }
 a { color: inherit; }
 button, input, textarea, select { font-family: inherit; }
-:focus-visible { outline: 3px solid var(--electric); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--on-ink); outline-offset: 2px; }
+/* on white surfaces the ring switches to electric so it stays visible */
+dialog.sheet :focus-visible, .form-card :focus-visible, .item-card :focus-visible,
+.name-list :focus-visible, .row-card:focus-visible, .row-card :focus-visible, .faq :focus-visible { outline-color: var(--electric); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .page {
@@ -117,7 +120,7 @@ button, input, textarea, select { font-family: inherit; }
 .tile--mint { background: var(--mint); }
 .tile--bubblegum { background: var(--bubblegum); }
 .tile--sky { background: var(--sky); }
-.tile--electric { background: var(--electric); color: var(--on-ink); width: 112px; justify-content: flex-end; font-size: 19px; font-weight: 600; }
+.tile--electric { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .45); background: var(--electric); color: var(--on-ink); width: 112px; justify-content: flex-end; font-size: 19px; font-weight: 600; }
 .tile:active { transform: scale(.97); }
 
 /* ================================================================ pills */
@@ -133,6 +136,7 @@ button, input, textarea, select { font-family: inherit; }
 .pill--bubblegum { background: var(--bubblegum); }
 .pill--sky { background: var(--sky); }
 .pill--electric { background: var(--electric); color: var(--on-ink); }
+.pill--plain { background: var(--paper); box-shadow: inset 0 0 0 1px #c9c9d3; }
 .pill--ink { background: var(--on-paper); color: var(--paper); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 
 /* ============================================================== buttons */
@@ -212,11 +216,23 @@ button, input, textarea, select { font-family: inherit; }
 .item-card .actions.two { grid-template-columns: 1fr 1fr; }
 .item-card .bought-by { font-size: 14px; font-weight: 600; }
 
-.item-card.is-bought { background: var(--mint); }
-.item-card.is-bought .pic img, .item-card.is-bought .ph { opacity: .45; }
-.item-card.is-bought .meta, .item-card.is-bought .notes { color: #2c4a36; }
+/* Purchased never relies on colour: thick black border, striped picture,
+   a black PURCHASED band and "Bought by" text. Yellow is a bonus cue. */
+.item-card.is-bought { background: var(--lemon); outline: 4px solid var(--on-paper); outline-offset: -8px; }
+.item-card.is-bought .pic img, .item-card.is-bought .ph { opacity: .4; }
+.item-card.is-bought .pic::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(18, 18, 22, .28) 0 3px, transparent 3px 12px);
+}
+.item-card.is-bought .pic .pill--ink {
+  z-index: 1; top: auto; bottom: 0; left: 0; right: 0; max-width: none;
+  justify-content: center; border-radius: 0; padding: 8px 10px; font-size: 15px;
+}
+.item-card.is-bought .meta, .item-card.is-bought .notes { color: var(--on-paper); }
 .item-card.is-bought .btn--secondary { background: transparent; }
-.item-card.is-secret:not(.is-bought) { box-shadow: inset 0 0 0 3px var(--bubblegum); }
+.item-card.is-bought .bought-by { font-size: 15px; }
+/* Secret ideas: dashed black border plus the "Secret idea" label */
+.item-card.is-secret:not(.is-bought) { outline: 3px dashed var(--on-paper); outline-offset: -7px; }
 
 /* ========================================================== name picker */
 
@@ -241,6 +257,7 @@ button, input, textarea, select { font-family: inherit; }
 .notice p { flex: 1 1 220px; }
 .notice a, .notice button { color: var(--on-paper); }
 .notice--lemon { background: var(--lemon); }
+.notice--sky { background: var(--sky); }
 .notice--mint { background: var(--mint); }
 
 .empty { padding: 28px 20px; border-radius: var(--r-card); border: 1.5px dashed var(--ink-line); text-align: center; color: var(--on-ink-muted); }
@@ -284,7 +301,7 @@ details > summary { cursor: pointer; min-height: 48px; display: flex; align-item
   width: min(420px, calc(100% - 32px)); height: var(--tabbar-h);
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 6px;
   border-radius: var(--r-pill); background: var(--electric);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .45), 0 10px 30px rgba(0, 0, 0, .45);
 }
 .tabbar a {
   display: grid; place-items: center; border-radius: var(--r-pill);
@@ -299,7 +316,7 @@ input, textarea {
   background: var(--paper-sunk); border: 1.5px solid transparent; border-radius: var(--r-control);
   padding: 12px 14px; min-height: 52px;
 }
-input::placeholder, textarea::placeholder { color: #9a9aa6; }
+input::placeholder, textarea::placeholder { color: #6b6b78; }
 input:focus, textarea:focus { outline: none; border-color: var(--electric); box-shadow: 0 0 0 3px var(--electric-soft); }
 textarea { resize: vertical; }
 

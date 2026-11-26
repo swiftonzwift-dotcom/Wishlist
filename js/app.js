@@ -27,8 +27,8 @@ const setMeId = (id) => (id ? ls.set(ME_KEY, id) : ls.del(ME_KEY));
 
 const PRIORITY = {
   3: { label: "Most wanted", color: "bubblegum" },
-  2: { label: "Really want", color: "lemon" },
-  1: { label: "Nice to have", color: "sky" },
+  2: { label: "Really want", color: "sky" },
+  1: { label: "Nice to have", color: "plain" },
 };
 
 const possessive = (n) => (/s$/i.test(n) ? `${n}’` : `${n}’s`);
@@ -198,7 +198,7 @@ function sectionLabel(text, link = "") {
 
 function modeBanner() {
   if (store.mode !== "local") return "";
-  return `<div class="notice notice--lemon"><p><strong>Demo mode.</strong> Lists are saved on this device only. The README explains how to share them with the family.</p></div>`;
+  return `<div class="notice notice--sky"><p><strong>Demo mode.</strong> Lists are saved on this device only. The README explains how to share them with the family.</p></div>`;
 }
 
 function rolloverBanner() {
@@ -355,7 +355,7 @@ function viewMyList(me) {
     <div class="welcome-head"><div><p class="hi">My ${year()}</p><h1 class="hello">Wish list</h1></div></div>
     <p class="lede" style="margin:-12px 0 20px">Your family can see this list. <strong>You won’t see what’s been bought</strong>, so it stays a surprise.</p>
     <button class="btn btn--primary btn--block" data-action="add-item" data-person="${esc(me.id)}">Add a wish</button>
-    ${carry.items.length ? `<div class="notice notice--lemon" style="margin-top:16px"><p>You had ${plural(carry.items.length, "wish", "wishes")} in ${carry.year} that nobody bought.</p>
+    ${carry.items.length ? `<div class="notice notice--sky" style="margin-top:16px"><p>You had ${plural(carry.items.length, "wish", "wishes")} in ${carry.year} that nobody bought.</p>
       <button class="btn btn--small" data-action="copy-last-year" data-person="${esc(me.id)}">Bring them back</button></div>` : ""}
     ${sectionLabel(items.length ? plural(items.length, "wish", "wishes") : "Nothing here yet")}
     ${items.length ? `<div class="item-grid">${items.map((i) => itemCard(i, "owner")).join("")}</div>`
@@ -370,7 +370,7 @@ function viewTheirList(p) {
   return `<div class="page">
     ${pagebar()}
     <div class="list-head">${avatar(p, "lg")}<div><p class="label">Wish list of</p><h1>${esc(p.name)}</h1></div></div>
-    ${items.length ? `<div class="stat-pills"><span class="pill pill--lemon">${plural(items.length, "wish", "wishes")}</span><span class="pill pill--mint">${open} still available</span></div>
+    ${items.length ? `<div class="stat-pills"><span class="pill pill--plain">${plural(items.length, "wish", "wishes")}</span><span class="pill pill--sky">${open} still available</span></div>
       <p class="lede">Bought something? Tap <strong>I bought this</strong> so nobody else buys it. ${name} won’t see it.</p>` : ""}
     ${sectionLabel("Wishes")}
     ${items.length ? `<div class="item-grid">${items.map((i) => itemCard(i, "viewer")).join("")}</div>`
@@ -510,7 +510,7 @@ function viewHelp() {
   const qa = [
     ["How do I add something I want?", "Tap <strong>My list</strong> at the bottom, then <strong>Add a wish</strong>. Paste a link from any store (we’ll try to fetch the picture and name), or just type what you’d like."],
     ["How do I copy a link from a store?", "On your phone, open the item in the store’s app or website, tap <strong>Share</strong> and choose <strong>Copy</strong> (or <strong>Copy link</strong>). Then come back here and tap <strong>Paste</strong>."],
-    ["How do I mark a gift as bought?", "Open the person’s list and tap <strong>I bought this</strong>. Everyone else sees the item turn green with a <strong>Purchased</strong> label, so they don’t buy it too."],
+    ["How do I mark a gift as bought?", "Open the person’s list and tap <strong>I bought this</strong>. Everyone else sees the item get a thick black border, a striped picture and a big <strong>PURCHASED</strong> label, so they don’t buy it too."],
     ["Can people see what was bought for them?", "No. On your own list, bought items look exactly the same as before. It stays a surprise."],
     ["What’s a secret idea?", "On someone else’s list you can add a gift idea for them. Everyone can see it except that person."],
     ["How do I see the other family’s lists?", "Use the family menu at the top of the home screen. Pick the other family, or <strong>Both families</strong>."],
