@@ -9,12 +9,12 @@
 // ---------------------------------------------------------------------------
 
 export const FIREBASE_CONFIG = {
-  apiKey: "PASTE_API_KEY_HERE",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: "",
+  apiKey: "AIzaSyBgkzx6iyud1poJNrFAyTn0cDDoGrj5VCA",
+  authDomain: "wishlist-5621c.firebaseapp.com",
+  projectId: "wishlist-5621c",
+  storageBucket: "wishlist-5621c.firebasestorage.app",
+  messagingSenderId: "1025633976176",
+  appId: "1:1025633976176:web:067fca8eca0f496756d9b5",
 };
 
 // The login name for the shared family password (README, Step 2). This is
