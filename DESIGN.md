@@ -13,13 +13,13 @@ The look: an Apple-style light grey page, crisp white cards with a soft shadow, 
 | `--page` | `#F5F5F7` | App background (Apple's light grey) |
 | `--page-raised` | `#E8E8ED` | Grey panels on the page (secret-idea box, admin panels) |
 | `--page-line` | `#D2D2D7` | Hairlines and dividers on the page; the dropdown outline |
-| `--on-page` | `#1D1D1F` | Text on the page; the active tab and the toast background |
+| `--on-page` | `#1D1D1F` | Text on the page; the toast background |
 | `--on-page-muted` | `#6E6E73` | Section labels and hints on the page. Use `--on-raised-muted` `#5F5F64` inside grey panels. |
 | `--paper` | `#FFFFFF` | Cards, sheets, inputs |
 | `--paper-sunk` | `#F1F1F5` | Input fields and placeholders on cards |
 | `--on-paper` | `#121216` | Text on cards |
 | `--on-paper-muted` | `#666673` | Secondary text on cards |
-| `--electric` | `#2B1BF2` | **The only action colour**: buttons, links, the tab bar. White text on it uses `--on-electric`. |
+| `--electric` | `#2B1BF2` | **The only action colour**: buttons and links. White text on it uses `--on-electric`. |
 | `--electric-tint` / `--electric-deep` | `#E3E0FF` / `#1A0FA8` | Secondary actions: tinted blue background with deep-blue text |
 | `--electric-press` | `#1E0FC4` | Pressed state |
 | `--lemon` | `#F2F55A` | Accent: **Purchased** cards and the "I'm giving" tile (both mean "bought") |
@@ -73,7 +73,6 @@ The minimum is 13px, used only for pills. Body text never goes below 17px.
 | Name list | `.name-list` | One white card holding a divided list of names, each a 56px tap row. |
 | Notice | `.notice` + `--lemon/--mint` | Rounded strip for one-off messages (demo mode, new year). |
 | Panel | `.panel` | `--page-raised` grey box for secondary actions on a page (secret ideas, starting the new year early). |
-| Tab bar | `.tabbar` | Fixed electric pill at the bottom with text tabs **Family · My list · Giving**. The current tab sits in a black inner pill. |
 | Sheet | `dialog.sheet` | White sheet that slides up from the bottom, holding forms and confirmations. Actions sit at the bottom, primary on the right. |
 | Field | `.field` | Label above the input, with the input on `--paper-sunk`, 14px radius and an electric focus ring. |
 | Choice chips | `.chip` | Radio buttons shown as pills; the selected chip is filled electric. |
@@ -105,3 +104,10 @@ Some family members have red-green colour blindness: greens, oranges and reds ar
 
 - Talk like a helpful relative: "Tap your name", "Did you buy this?", "Nothing yet".
 - Name the action on the button: "I bought this", "Add a wish", "See list". Avoid "OK" or "Submit".
+
+## Navigation
+
+Keep it to one way to get anywhere, so it's simple for first-time users:
+- **Home** has the three action buttons (Add a wish, My list, I'm giving), the family's lists, and footer links.
+- Every other page starts with an underlined **Back** link at the top left.
+- There's no bottom tab bar.

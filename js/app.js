@@ -156,7 +156,6 @@ function render() {
     key: (el.form?.dataset.form || "") + ":" + el.name, value: el.value,
     focus: el === document.activeElement, start: el.selectionStart,
   }));
-  if (getMeId() && page !== "who") html += tabbar();
   app.innerHTML = html;
   for (const k of kept) {
     const [form, name] = k.key.split(":");
@@ -171,14 +170,6 @@ const back = (href = "#/", label = "Back") => `<a class="back" href="${href}">${
 
 function pagebar({ href = "#/", label = "Back", picker = false } = {}) {
   return `<div class="pagebar">${back(href, label)}${picker && getMeId() ? famPicker() : ""}</div>`;
-}
-
-function tabbar() {
-  const [page, a] = route();
-  const meId = getMeId();
-  const cur = page === "shopping" ? "giving" : page === "list" && a === meId ? "mine" : !page ? "family" : "";
-  const tab = (key, href, label) => `<a href="${href}" ${cur === key ? 'aria-current="page"' : ""}>${label}</a>`;
-  return `<nav class="tabbar" aria-label="Main">${tab("family", "#/", "Family")}${tab("mine", `#/list/${esc(meId)}`, "My list")}${tab("giving", "#/shopping", "Giving")}</nav>`;
 }
 
 function sectionLabel(text, link = "") {
@@ -252,7 +243,6 @@ function viewHome() {
     </header>
     ${rolloverBanner()}${modeBanner()}
 
-    ${sectionLabel(`My ${year()} wish list`)}
     <div class="action-row">
       <button class="tile tile--primary" data-action="add-item" data-person="${esc(me.id)}">Add a wish</button>
       <a class="tile tile--secondary" href="#/list/${esc(me.id)}">My list<span class="num">${mine.length}</span></a>
@@ -339,6 +329,7 @@ function viewMyList(me) {
   const items = sortItems(itemsFor(me.id).filter((i) => !i.isSecret), false);
   const carry = carryOverCandidates(me.id);
   return `<div class="page">
+    ${pagebar()}
     <div class="welcome-head"><div><p class="hi">My ${year()}</p><h1 class="hello">Wish list</h1></div></div>
     <p class="lede" style="margin:-12px 0 20px">Your family can see this list. <strong>You won’t see what’s been bought</strong>, so it stays a surprise.</p>
     <button class="btn btn--primary btn--block" data-action="add-item" data-person="${esc(me.id)}">Add a wish</button>
@@ -391,6 +382,7 @@ function viewShopping() {
   const groups = {};
   for (const i of mine) (groups[i.personId] ||= []).push(i);
   return `<div class="page">
+    ${pagebar()}
     <div class="welcome-head"><div><p class="hi">Gifts</p><h1 class="hello">I’m giving</h1></div></div>
     <p class="lede" style="margin:-12px 0 8px">Everything you’ve marked as bought in ${year()}.</p>
     ${Object.keys(groups).map((pid) => `${sectionLabel(`For ${esc(nameOf(pid))}`)}
@@ -541,13 +533,13 @@ async function loadBackups() {
 
 function viewHelp() {
   const qa = [
-    ["How do I add something I want?", "Tap <strong>My list</strong> at the bottom, then <strong>Add a wish</strong>. Paste a link from any store (we’ll try to fetch the picture and name), or just type what you’d like."],
+    ["How do I add something I want?", "On the home screen, tap the big blue <strong>Add a wish</strong> button. Paste a link from any store (we’ll try to fetch the picture and name), or just type what you’d like."],
     ["How do I copy a link from a store?", "On your phone, open the item in the store’s app or website, tap <strong>Share</strong> and choose <strong>Copy</strong> (or <strong>Copy link</strong>). Then come back here and tap <strong>Paste</strong>."],
     ["How do I mark a gift as bought?", "Open the person’s list and tap <strong>I bought this</strong>. Everyone else sees the item get a thick black border, a striped picture and a big <strong>PURCHASED</strong> label, so they don’t buy it too."],
     ["Can people see what was bought for them?", "No. On your own list, bought items look exactly the same as before. It stays a surprise."],
     ["What’s a secret idea?", "On someone else’s list you can add a gift idea for them. Everyone can see it except that person."],
     ["How do I see the other family’s lists?", "Use the family menu at the top of the home screen. Pick the other family, or <strong>Both families</strong>."],
-    ["I marked something by mistake.", "Tap <strong>Undo purchase</strong> on the item, or open <strong>Giving</strong> and tap <strong>Not bought after all</strong>."],
+    ["I marked something by mistake.", "Tap <strong>Undo purchase</strong> on the item, or tap <strong>I’m giving</strong> on the home screen and tap <strong>Not bought after all</strong>."],
     ["What happens after the holidays?", "On January 1 the lists are saved under <strong>Past years</strong> and everyone starts a fresh list. Anything you didn’t get can be brought back with one tap."],
     ["How do I remove a name?", "Open <strong>Names</strong>, tap <strong>Remove</strong> and type <strong>APPROVE</strong> in capital letters. This keeps names from being removed by accident."],
     ["Can I put this on my home screen?", "Yes. iPhone: tap Share in Safari, then <strong>Add to Home Screen</strong>. Android: open the Chrome menu, then <strong>Add to Home screen</strong>."],
