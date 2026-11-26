@@ -1,4 +1,5 @@
 import { createStore, uid } from "./store.js";
+import { FAMILIES } from "./config.js";
 import { fetchPreview, normalizeUrl, safeUrl, hostOf, siteNameFor } from "./preview.js";
 
 const app = document.getElementById("app");
@@ -34,12 +35,19 @@ const possessive = (n) => (/s$/i.test(n) ? `${n}’` : `${n}’s`);
 const plural = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
 const AVATAR_COLORS = ["#b3261e", "#1e7a46", "#9a5b13", "#2f5d9e", "#7b3f99", "#0f766e", "#a23c6b", "#5b6b1f"];
+function initials(name) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const a = (parts[0] || "?").charAt(0);
+  const b = parts.length > 1 ? parts[parts.length - 1].charAt(0) : "";
+  return (a + b).toUpperCase();
+}
+
 function avatar(p, size = "") {
   const name = (p && p.name) || "?";
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const bg = AVATAR_COLORS[h % AVATAR_COLORS.length];
-  return `<span class="avatar ${size}" style="background:${bg}" aria-hidden="true">${esc(name.trim().charAt(0).toUpperCase())}</span>`;
+  return `<span class="avatar ${size}" style="background:${bg}" aria-hidden="true">${esc(initials(name))}</span>`;
 }
 
 const year = () => Number(S.settings.currentYear) || new Date().getFullYear();
@@ -48,6 +56,49 @@ const activePeople = () =>
   S.people.filter((p) => !p.removed).sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name));
 const itemsFor = (pid, yr = year()) => S.items.filter((i) => i.personId === pid && Number(i.year) === yr);
 const nameOf = (id, fallback = "someone") => (person(id) && person(id).name) || fallback;
+const firstName = (p) => String((p && p.name) || "").trim().split(/\s+/)[0] || "them";
+const firstOf = (id, fallback = "someone") => (person(id) ? firstName(person(id)) : fallback);
+
+/* families: each person belongs to one or more; the toggle picks which to show */
+const FAM_KEY = "wishlist-family";
+const FAM_IDS = FAMILIES.map((f) => f.id);
+const ALL = "all";
+const famName = (id) => (FAMILIES.find((f) => f.id === id) || { name: id }).name;
+function personFams(p) {
+  const f = (p && Array.isArray(p.families) ? p.families : []).filter((x) => FAM_IDS.includes(x));
+  return f.length ? f : FAM_IDS; // no family set (older data): show everywhere
+}
+function currentFam() {
+  const saved = ls.get(FAM_KEY);
+  if (saved === ALL || FAM_IDS.includes(saved)) return saved;
+  const me = person(getMeId());
+  const mine = me ? personFams(me) : FAM_IDS;
+  return mine.length === 1 ? mine[0] : ALL;
+}
+const inFam = (p, fam = currentFam()) => fam === ALL || personFams(p).includes(fam);
+const famHeading = (fam = currentFam()) => (fam === ALL ? "Both families" : `${famName(fam)} family`);
+
+function famToggle() {
+  const cur = currentFam();
+  const opts = [...FAMILIES.map((f) => [f.id, `${f.name}s`]), [ALL, FAMILIES.length === 2 ? "Both" : "Everyone"]];
+  return `<div class="fam-toggle" role="group" aria-label="Show which family">${opts.map(([id, label]) =>
+    `<button type="button" class="${cur === id ? "on" : ""}" aria-pressed="${cur === id}" data-action="set-family" data-fam="${id}">${esc(label)}</button>`).join("")}</div>`;
+}
+
+function famChecks(selected) {
+  return `<fieldset class="fam-checks"><legend>Which family list?</legend>${FAMILIES.map((f) =>
+    `<label><input type="checkbox" name="fam" value="${f.id}" ${selected.includes(f.id) ? "checked" : ""}> ${esc(f.name)}s</label>`).join("")}</fieldset>`;
+}
+// Keep each family in the order its names were listed in config.js.
+function famSort(list, fam = currentFam()) {
+  const members = fam === ALL ? [] : ((FAMILIES.find((f) => f.id === fam) || {}).members || []).map((n) => n.toLowerCase());
+  const rank = (p) => {
+    const i = members.indexOf(p.name.trim().toLowerCase());
+    return i >= 0 ? i : 1000 + (p.order ?? 0);
+  };
+  return list.slice().sort((a, b) => rank(a) - rank(b));
+}
+const famTags = (p) => personFams(p).map((f) => `<span class="fam-tag">${esc(famName(f))}</span>`).join("");
 
 function sortItems(list, boughtLast) {
   return list.slice().sort((a, b) => {
@@ -107,26 +158,26 @@ function render() {
   }
 
   // Keep anything the person is typing if the list updates underneath them.
-  const kept = [...app.querySelectorAll("input[name]")].map((el) => ({
+  const kept = [...app.querySelectorAll("input[name]:not([type=checkbox]):not([type=radio])")].map((el) => ({
     key: (el.form?.dataset.form || "") + ":" + el.name, value: el.value,
     focus: el === document.activeElement, start: el.selectionStart,
   }));
   app.innerHTML = html;
   for (const k of kept) {
     const [form, name] = k.key.split(":");
-    const el = app.querySelector(`${form ? `form[data-form="${form}"] ` : ""}input[name="${name}"]`);
+    const el = app.querySelector(`${form ? `form[data-form="${form}"] ` : ""}input[name="${name}"]:not([type=checkbox]):not([type=radio])`);
     if (!el) continue;
     if (k.value) el.value = k.value;
     if (k.focus) { el.focus(); try { el.setSelectionRange(k.start, k.start); } catch {} }
   }
 }
 
-function topbar() {
+function topbar(toggle = false) {
   const me = person(getMeId());
-  return `<header class="topbar">
+  return `<header class="topbar"><div class="topbar-row">
     <a class="brand" href="#/"><span aria-hidden="true">🎁</span> Wish Lists <span class="yr">${year()}</span></a>
     ${me ? `<a class="me-chip" href="#/who" aria-label="You are ${esc(me.name)}. Tap to change.">${avatar(me, "sm")}<span>${esc(me.name)}</span><span class="chev" aria-hidden="true">▾</span></a>` : ""}
-  </header>`;
+  </div>${toggle ? famToggle() : ""}</header>`;
 }
 
 const back = (href = "#/", label = "All lists") => `<a class="back" href="${href}">‹ ${esc(label)}</a>`;
@@ -150,20 +201,23 @@ function rolloverBanner() {
 
 function viewWho(first) {
   const people = activePeople();
-  return `${first ? "" : topbar()}
+  const fam = currentFam();
+  const fams = fam === ALL ? FAMILIES : FAMILIES.filter((f) => f.id === fam);
+  const btn = (p) => `<button class="who-btn ${p.id === getMeId() ? "current" : ""}" data-action="choose-me" data-id="${esc(p.id)}">${avatar(p)}<span>${esc(p.name)}</span></button>`;
+  return `${first ? "" : topbar(true)}
   <div class="page">
-    ${first ? `<div class="welcome"><p class="big-emoji">🎁</p><h1>Welcome to the family wish lists!</h1></div>` : back()}
+    ${first ? `<div class="welcome"><p class="big-emoji">🎁</p><h1>Welcome to the family wish lists!</h1></div>${famToggle()}` : back()}
     <h2 class="who-q">${first ? "First, who are you?" : "Who are you?"}</h2>
     <p class="hint">Tap your name. This phone will remember you.</p>
-    <div class="who-grid">
-      ${people.map((p) => `<button class="who-btn ${p.id === getMeId() ? "current" : ""}" data-action="choose-me" data-id="${esc(p.id)}">${avatar(p)}<span>${esc(p.name)}</span></button>`).join("")}
-    </div>
+    ${fams.map((f) => `<h3 class="fam-h">${esc(f.name)} family</h3>
+      <div class="who-grid">${famSort(people.filter((p) => inFam(p, f.id)), f.id).map(btn).join("")}</div>`).join("")}
     <details class="add-self">
       <summary>Not on the list? Add your name</summary>
       <form data-form="add-self" class="inline-form">
         <label class="sr-only" for="self-name">Your name</label>
-        <input id="self-name" name="name" placeholder="Your name" maxlength="40" autocomplete="given-name" required>
+        <input id="self-name" name="name" placeholder="First and last name" maxlength="40" autocomplete="name" required>
         <button class="btn primary">Add me</button>
+        ${famChecks(fam === ALL ? [] : [fam])}
       </form>
     </details>
   </div>`;
@@ -173,7 +227,7 @@ function viewWho(first) {
 
 function viewHome() {
   const me = person(getMeId());
-  const others = activePeople().filter((p) => p.id !== me.id);
+  const others = famSort(activePeople().filter((p) => p.id !== me.id && inFam(p)));
   const mine = itemsFor(me.id).filter((i) => !i.isSecret);
   const giving = S.items.filter((i) => Number(i.year) === year() && i.purchased && i.purchasedBy === me.id);
 
@@ -186,17 +240,17 @@ function viewHome() {
     return `<li><a class="person-row" href="#/list/${esc(p.id)}">${avatar(p)}<span class="pr-text"><strong>${esc(p.name)}</strong><small>${meta}</small></span><span class="arrow" aria-hidden="true">›</span></a></li>`;
   };
 
-  return `${topbar()}
+  return `${topbar(true)}
   <div class="page">
     ${rolloverBanner()}${modeBanner()}
-    <h1 class="hello">Hi, ${esc(me.name)}!</h1>
+    <h1 class="hello">Hi, ${esc(firstName(me))}!</h1>
     <a class="card-btn primary" href="#/list/${esc(me.id)}">
       <span class="ico" aria-hidden="true">📝</span>
       <span class="cb-text"><strong>My wish list</strong><small>${mine.length ? `${plural(mine.length, "wish", "wishes")} · tap to add or change` : "Empty · tap to add your first wish"}</small></span>
       <span class="arrow" aria-hidden="true">›</span>
     </a>
 
-    <h2>Family lists</h2>
+    <h2>${currentFam() === ALL ? "Everyone’s lists" : `${esc(famHeading())} lists`}</h2>
     <p class="hint">Tap a name to see their wishes. When you buy something, mark it so nobody else buys the same thing.</p>
     <ul class="people">${others.map(row).join("") || `<li class="muted">No one else yet. <a href="#/family">Add names</a></li>`}</ul>
 
@@ -229,7 +283,7 @@ function itemCard(it, mode) {
   const showBought = mode !== "owner" && it.purchased;
   const url = safeUrl(it.url);
   const pr = PRIORITY[it.priority] || PRIORITY[2];
-  const owner = nameOf(it.personId, "them");
+  const owner = firstOf(it.personId, "them");
   const buyer = nameOf(it.purchasedBy, it.purchasedByName || "someone");
   const id = esc(it.id);
   const viewBtn = url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">View item ↗</a>` : "";
@@ -298,7 +352,7 @@ function viewMyList(me) {
 function viewTheirList(p) {
   const items = sortItems(itemsFor(p.id), true);
   const open = items.filter((i) => !i.purchased).length;
-  const name = esc(p.name);
+  const name = esc(firstName(p));
   return `${topbar()}
   <div class="page">
     ${back()}
@@ -315,7 +369,7 @@ function viewTheirList(p) {
       <button class="btn" data-action="add-item" data-person="${esc(p.id)}" data-secret="1">＋ Add a secret idea</button>
     </section>
     <p class="switch-note">Is this your list, or are you helping ${name} with it?
-      <button class="link-btn" data-action="choose-me" data-id="${esc(p.id)}" data-go="list">Switch to ${esc(possessive(p.name))} own view</button></p>
+      <button class="link-btn" data-action="choose-me" data-id="${esc(p.id)}" data-go="list">Switch to ${esc(possessive(firstName(p)))} own view</button></p>
   </div>`;
 }
 
@@ -350,20 +404,24 @@ function viewShopping() {
 /* -------------------------------------------------------------- family */
 
 function viewFamily() {
-  const people = activePeople();
+  const fam = currentFam();
+  const people = famSort(activePeople().filter((p) => inFam(p)));
   const removed = S.people.filter((p) => p.removed);
-  return `${topbar()}
+  return `${topbar(true)}
   <div class="page">
     ${back(getMeId() ? "#/" : "#/who", getMeId() ? "All lists" : "Back")}
-    <h1>Family names</h1>
-    <p class="hint">Anyone can add a name or fix a spelling.</p>
-    <form data-form="add-person" class="inline-form">
-      <label class="sr-only" for="new-name">New name</label>
-      <input id="new-name" name="name" placeholder="Type a new name" maxlength="40" required>
-      <button class="btn primary">＋ Add</button>
+    <h1>${fam === ALL ? "Family names" : `${esc(famHeading())} names`}</h1>
+    <p class="hint">Anyone can add a name, fix a spelling, or change which family list someone is on.</p>
+    <form data-form="add-person" class="add-person">
+      <div class="inline-form">
+        <label class="sr-only" for="new-name">New name</label>
+        <input id="new-name" name="name" placeholder="First and last name" maxlength="40" required>
+        <button class="btn primary">＋ Add</button>
+      </div>
+      ${famChecks(fam === ALL ? [] : [fam])}
     </form>
     <ul class="manage">
-      ${people.map((p) => `<li>${avatar(p)}<span class="m-name">${esc(p.name)}</span>
+      ${people.map((p) => `<li>${avatar(p)}<span class="m-name">${esc(p.name)}<span class="fam-tags">${famTags(p)}</span></span>
         <button class="btn small" data-action="rename-person" data-id="${esc(p.id)}">Edit</button>
         <button class="btn small danger-ghost" data-action="remove-person" data-id="${esc(p.id)}">Remove</button></li>`).join("")}
     </ul>
@@ -383,7 +441,7 @@ function pastYears() {
 function viewPast() {
   const years = pastYears();
   const next = year() + 1;
-  return `${topbar()}
+  return `${topbar(true)}
   <div class="page">
     ${back()}
     <h1>Past years</h1>
@@ -404,8 +462,9 @@ function viewPast() {
 
 function viewPastYear(y) {
   const ids = [...new Set(S.items.filter((i) => Number(i.year) === y).map((i) => i.personId))];
-  const ppl = ids.map((id) => person(id) || { id, name: "Removed name" }).sort((a, b) => a.name.localeCompare(b.name));
-  return `${topbar()}
+  const ppl = ids.map((id) => person(id) || { id, name: "Removed name" }).filter((p) => inFam(p))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return `${topbar(true)}
   <div class="page">
     ${back("#/past", "Past years")}
     <h1>${y} wish lists</h1>
@@ -502,16 +561,28 @@ function approveBox({ title, text, ok }) {
   });
 }
 
-function nameDialog({ title, value = "", ok }) {
+function personDialog({ title, value = "", families = [], ok }) {
   return new Promise((resolve) => {
     const d = dialog(`<form method="dialog">
       <h2>${title}</h2>
       <label class="field"><span>Name</span><input name="name" maxlength="40" value="${esc(value)}" required></label>
+      ${famChecks(families)}
+      <p class="form-error" role="alert" hidden></p>
       <div class="dlg-actions"><button value="cancel" class="btn ghost" formnovalidate>Cancel</button><button value="ok" class="btn primary">${ok}</button></div></form>`);
-    const input = d.querySelector("input");
+    const form = d.querySelector("form");
+    const input = form.elements.name;
+    const picked = () => [...form.querySelectorAll('input[name="fam"]:checked')].map((i) => i.value);
+    form.addEventListener("submit", (e) => {
+      if (e.submitter && e.submitter.value === "ok" && !picked().length) {
+        e.preventDefault();
+        const err = d.querySelector(".form-error");
+        err.hidden = false;
+        err.textContent = "Tick at least one family.";
+      }
+    });
     input.focus();
-    input.select();
-    d.addEventListener("close", () => resolve(d.returnValue === "ok" ? input.value.trim() : null));
+    d.addEventListener("close", () =>
+      resolve(d.returnValue === "ok" ? { name: input.value.trim().replace(/\s+/g, " "), families: picked() } : null));
   });
 }
 
@@ -649,10 +720,10 @@ function nameTaken(name, exceptId) {
   return activePeople().some((p) => p.id !== exceptId && p.name.trim().toLowerCase() === n);
 }
 
-function newPerson(name) {
+function newPerson(name, families) {
   const order = Math.max(-1, ...S.people.map((p) => p.order ?? 0)) + 1;
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person";
-  return { id: `${slug}-${uid().slice(-5)}`, name, order, createdAt: Date.now() };
+  return { id: `${slug}-${uid().slice(-5)}`, name, families, order, createdAt: Date.now() };
 }
 
 const actions = {
@@ -679,7 +750,7 @@ const actions = {
     const me = person(getMeId());
     const it = S.items.find((i) => i.id === el.dataset.id);
     if (!it || !me) return;
-    const owner = nameOf(it.personId, "them");
+    const owner = firstOf(it.personId, "them");
     const ok = await confirmBox({
       title: "Did you buy this?",
       text: `<strong>${esc(it.title)}</strong> for ${esc(owner)}.<br><br>Everyone except ${esc(owner)} will see it’s been bought, so nobody buys it twice.`,
@@ -712,10 +783,10 @@ const actions = {
   async "rename-person"(el) {
     const p = person(el.dataset.id);
     if (!p) return;
-    const name = await nameDialog({ title: `Edit name`, value: p.name, ok: "Save" });
-    if (!name || name === p.name) return;
-    if (nameTaken(name, p.id)) return toast(`${name} is already on the list.`);
-    save(store.updatePerson(p.id, { name }), "Name updated ✓");
+    const res = await personDialog({ title: "Edit name", value: p.name, families: personFams(p), ok: "Save" });
+    if (!res || !res.name) return;
+    if (nameTaken(res.name, p.id)) return toast(`${res.name} is already on the list.`);
+    save(store.updatePerson(p.id, { name: res.name, families: res.families }), "Saved ✓");
   },
   async "remove-person"(el) {
     const p = person(el.dataset.id);
@@ -772,6 +843,10 @@ const actions = {
       prompt("Copy this link and send it to your family:", url);
     }
   },
+  "set-family"(el) {
+    ls.set(FAM_KEY, el.dataset.fam);
+    render();
+  },
   "dismiss-banner"() {
     ls.set("wishlist-banner-" + year(), "1");
     render();
@@ -792,9 +867,11 @@ document.addEventListener("submit", (e) => {
   const name = (form.elements.name.value || "").trim().replace(/\s+/g, " ");
   if (!name) return;
   if (nameTaken(name)) return toast(`${name} is already on the list.`);
-  const p = newPerson(name);
+  const families = [...form.querySelectorAll('input[name="fam"]:checked')].map((i) => i.value);
+  if (!families.length) return toast("Tick which family list they belong to.");
+  const p = newPerson(name, families);
+  form.elements.name.value = "";
   save(store.addPerson(p), `${name} added ✓`);
-  form.reset();
   if (form.dataset.form === "add-self") {
     setMeId(p.id);
     location.hash = "#/";

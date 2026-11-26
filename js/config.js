@@ -17,9 +17,25 @@ export const FIREBASE_CONFIG = {
   appId: "",
 };
 
-// The names the site starts with the very first time it's opened.
-// After that, names are added, edited and removed from inside the site.
-export const STARTING_NAMES = [
-  "Bill", "Claire", "Greg", "Brian", "Matt", "Tim",
-  "Ellen", "Emma", "Luke", "Amanda", "Thomas", "Winifred",
+// The families, and the names each one starts with the very first time the
+// site is opened. Someone can belong to more than one family (they then have
+// ONE wish list that both families see). After the first visit, names are
+// added, edited and removed from inside the site.
+export const FAMILIES = [
+  {
+    id: "smith",
+    name: "Smith",
+    members: [
+      "Bill Smith", "Claire Smith", "Greg Smith", "Brian Smith", "Matt Smith", "Tim Smith",
+      "Ellen Smith", "Emma Smith", "Luke Smith", "Amanda Lyons", "Thomas Lyons", "Winifred Lyons",
+    ],
+  },
+  {
+    id: "mitchell",
+    name: "Mitchell",
+    members: [
+      "Joel Mitchell", "Peggy Mitchell", "Anna Mitchell", "Tristan Lunde",
+      "Peter Mitchell", "Jess Sabota", "Ellen Smith", "Tim Smith",
+    ],
+  },
 ];

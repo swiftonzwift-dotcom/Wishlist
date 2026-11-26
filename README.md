@@ -4,9 +4,14 @@ A simple, phone-friendly wish list site for the family. There are no accounts or
 
 ## What it does
 
+**Two families, one site**
+- There's a **Smith** list and a **Mitchell** list. A switch at the top (**Smiths · Mitchells · Both**) picks which family you're looking at. Each phone remembers its choice, and it starts on your own family.
+- Someone can be in both families (Tim and Ellen are). They have **one** wish list that both families see, so purchases are never doubled up across families.
+- In-laws are on the right list even with a different last name: each person is ticked into their family, rather than matched by surname.
+
 **For everyone**
 - **Tap your name** the first time. The phone remembers you, and you can switch any time from the top corner.
-- **Add, rename or remove names.** Anyone can add a name or fix a spelling. To remove a name, you have to type **APPROVE** in capital letters, so nobody does it by accident. Removed names can be brought back.
+- **Add, rename or remove names.** Anyone can add a name, fix a spelling, or change which family someone is in. To remove a name, you have to type **APPROVE** in capital letters, so nobody does it by accident. Removed names can be brought back.
 
 **My wish list (your own list)**
 - **＋ Add a wish:** paste a link from any store and the site tries to fetch the item's picture and name automatically. If a store blocks that, you just type the name. You can also add a wish with no link, like "warm socks, size M".
@@ -60,7 +65,7 @@ The free Firebase plan is far more than a family needs.
 
 - **Privacy:** there are no passwords, so anyone who has the link can see and edit the lists. Only share the link with family.
 - **Link pictures** come from the free [microlink.io](https://microlink.io) preview service (about 50 lookups per day without an account). Some stores, sometimes Amazon, block previews; the item still saves fine with a gift-box picture.
-- **Changing the starting names** only matters before the first visit. Edit `STARTING_NAMES` in `js/config.js`. After that, manage names inside the site.
+- **Changing the starting names** only matters before the first visit. Edit `FAMILIES` in `js/config.js`. After that, manage names inside the site.
 
 ## For tinkerers
 

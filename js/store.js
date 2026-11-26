@@ -3,7 +3,7 @@
 //  - local: this browser only (demo mode, used until Firebase is set up)
 //
 // Data model
-//  people/{id}   { name, order, createdAt, removed?, removedAt? }
+//  people/{id}   { name, families: ["smith", ...], order, createdAt, removed?, removedAt? }
 //  items/{id}    { personId, year, title, url, image, siteName, price, notes,
 //                  priority (1-3), isSecret, addedBy, createdAt, copiedFrom?,
 //                  purchased, purchasedBy, purchasedByName, purchasedAt }
@@ -12,7 +12,7 @@
 // "Archiving" a year never moves data: each item remembers its year, and the
 // site simply shows items whose year matches settings.currentYear.
 
-import { FIREBASE_CONFIG, STARTING_NAMES } from "./config.js";
+import { FIREBASE_CONFIG, FAMILIES } from "./config.js";
 
 const FIREBASE_VERSION = "10.12.2";
 
@@ -26,12 +26,24 @@ export function clean(o) {
 
 function seedPeople() {
   const now = Date.now();
-  return STARTING_NAMES.map((name, i) => ({
-    id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "p" + i,
-    name,
-    order: i,
-    createdAt: now,
-  }));
+  const byName = new Map();
+  for (const fam of FAMILIES) {
+    for (const name of fam.members) {
+      const key = name.trim().toLowerCase();
+      if (!byName.has(key)) {
+        byName.set(key, {
+          id: key.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "p" + byName.size,
+          name: name.trim(),
+          families: [],
+          order: byName.size,
+          createdAt: now,
+        });
+      }
+      const p = byName.get(key);
+      if (!p.families.includes(fam.id)) p.families.push(fam.id);
+    }
+  }
+  return [...byName.values()];
 }
 
 function alreadyBought() {
@@ -52,7 +64,7 @@ export async function createStore() {
 /* ------------------------------------------------------------------ local */
 
 function localStore() {
-  const KEY = "family-wishlist-data-v1";
+  const KEY = "family-wishlist-data-v2";
   const listeners = new Set();
   const read = () => {
     try {
