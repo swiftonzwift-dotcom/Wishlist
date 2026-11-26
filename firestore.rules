@@ -1,0 +1,25 @@
+rules_version = '2';
+// Anyone with the site link can read and edit the family lists (no passwords,
+// so it stays easy). These rules just keep the data tidy and block anything
+// outside the three collections the site uses.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /people/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.name is string
+                            && request.resource.data.name.size() > 0
+                            && request.resource.data.name.size() <= 40;
+      allow delete: if false; // names are only hidden (removed: true), never erased
+    }
+    match /items/{id} {
+      allow read, delete: if true;
+      allow create, update: if request.resource.data.title is string
+                            && request.resource.data.title.size() <= 150
+                            && request.resource.data.personId is string
+                            && request.resource.data.size() <= 25;
+    }
+    match /meta/settings {
+      allow read, write: if true;
+    }
+  }
+}
