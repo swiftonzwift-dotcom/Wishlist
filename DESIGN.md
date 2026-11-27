@@ -65,7 +65,7 @@ The minimum is 13px, used only for pills. Body text never goes below 17px.
 | Action row | `.action-row` + `.tile--primary` / `.tile--secondary` | Three buttons in a row inside the 16px page gutter, lined up with the cards below. The primary action ("Add a wish") is the widest (1.3 parts to 1 each, about 39%), solid electric with a soft blue glow. The two secondary buttons ("My list", "I'm giving") use the electric tint, with a label top-left and a Display number bottom-left. Never more than three; anything else goes in the footer links. |
 | Pill | `.pill` + accent modifier | Caption-size label on an accent background: priority (Most wanted: bubblegum, Really want: sky, Nice to have: `--plain` white), "Secret idea", family name. `.pill--ink` is white on black and is only used for **Purchased**. |
 | Row card | `.row-card` | White card listing a person: name (Heading), meta in electric caption, and a corner action ("See list") that sits in the card's bottom-right notch. |
-| Item card | `.item-card` | White card: picture on top with a pill in its top-left corner, then the title and details, then actions. Cards sit two across in `.item-grid`. With no picture, the picture area is neutral `--paper-sunk` showing the store name (or "No photo") in light type. |
+| Item card | `.item-card` | White card with a 1px `--page-line` hairline border and soft shadow: picture on top with a pill in its top-left corner, then the title and details, then actions. Cards sit two across in `.item-grid`. With no picture, the picture area is neutral `--paper-sunk` showing the store name (or "No photo") in light type. |
 | Purchased item | `.item-card.is-bought` | Four cues, so it works without colour: a thick solid black border inside the card, black diagonal stripes over the faded picture, a full-width black **PURCHASED** band, and "Bought by …". Yellow body as a fifth, bonus cue. Never shown to the list's owner. |
 | Corner action | `.corner-action` | Electric square tucked into a card's bottom-right corner ("View" or "See list"). This is the reference design's signature notch. |
 | Buttons | `.btn` + `--primary/--secondary/--ghost/--danger`, `--small`, `--block` | Primary is electric with white text. Secondary is white with an electric outline. Ghost is an underlined text link. Danger is red text, or filled red inside confirmation sheets. |
@@ -84,7 +84,7 @@ Some family members have red-green colour blindness: greens, oranges and reds ar
 
 1. **Never use colour alone to mean something.** Every state has a word plus a shape or pattern:
    - Purchased: solid black inner border, striped picture, **PURCHASED** band, "Bought by …".
-   - Secret idea: dashed black inner border and a "Secret idea" label.
+   - Secret idea: a "Secret idea" label and a "From …" note saying who added it.
    - Priority: the pill always says the priority in words.
 2. **Avoid red-versus-green pairings.** Green (mint) is decoration only and never signals a state. Red is only for Remove or Delete, which always say so.
 3. **Contrast (WCAG 2.1 AA):** text is at least 4.5:1, and borders and focus rings at least 3:1. Checked values:

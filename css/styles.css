@@ -190,6 +190,7 @@ button, input, textarea, select { font-family: inherit; }
 .item-card {
   position: relative; display: flex; flex-direction: column;
   border-radius: var(--r-card); background: var(--paper); color: var(--on-paper); overflow: hidden;
+  border: 1px solid var(--page-line);
   box-shadow: var(--card-shadow);
 }
 .item-card .pic { position: relative; aspect-ratio: 4 / 3; background: var(--paper-sunk); }
@@ -225,8 +226,6 @@ button, input, textarea, select { font-family: inherit; }
 .item-card.is-bought .meta, .item-card.is-bought .notes { color: var(--on-paper); }
 .item-card.is-bought .btn--secondary { background: transparent; }
 .item-card.is-bought .bought-by { font-size: 15px; }
-/* Secret ideas: dashed black border plus the "Secret idea" label */
-.item-card.is-secret:not(.is-bought) { outline: 3px dashed var(--on-paper); outline-offset: -7px; }
 
 /* ========================================================== name picker */
 
