@@ -1,5 +1,5 @@
 import { createStore, uid } from "./store.js";
-import { FAMILIES, ADMIN_NAMES } from "./config.js";
+import { FAMILIES, ADMIN_NAMES, FAMILY_UPDATES } from "./config.js";
 import { fetchPreview, normalizeUrl, safeUrl, hostOf, siteNameFor } from "./preview.js";
 
 const app = document.getElementById("app");
@@ -1016,6 +1016,29 @@ async function maybeBackup() {
   }
 }
 
+/* ================================================ one-time updates */
+
+// Applies FAMILY_UPDATES from config.js that haven't run yet (see there).
+let updatesChecked = false;
+function applyFamilyUpdates() {
+  if (updatesChecked || !S.ready) return;
+  updatesChecked = true;
+  const done = Array.isArray(S.settings.appliedUpdates) ? S.settings.appliedUpdates : [];
+  const pending = (FAMILY_UPDATES || []).filter((u) => !done.includes(u.id));
+  if (!pending.length) return;
+  for (const u of pending) {
+    for (const name of u.names) {
+      const p = S.people.find((x) => !x.removed && x.name.trim().toLowerCase() === name.trim().toLowerCase());
+      if (!p) continue;
+      const fams = Array.isArray(p.families) && p.families.length ? p.families : [];
+      if (fams.length && !fams.includes(u.family)) {
+        save(store.updatePerson(p.id, { families: [...fams, u.family] }));
+      }
+    }
+  }
+  save(store.updateSettings({ appliedUpdates: [...done, ...pending.map((u) => u.id)] }));
+}
+
 /* ================================================== yearly rollover */
 
 // On or after January 1, save last year's lists and start the new year.
@@ -1054,6 +1077,7 @@ function start() {
     (snap) => {
       S = { ...S, ...snap, ready: true, error: "" };
       maybeBackup();
+      applyFamilyUpdates();
       maybeRollover();
       render();
     },
