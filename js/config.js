@@ -41,6 +41,7 @@ export const FAMILIES = [
     members: [
       "Joel Mitchell", "Peggy Mitchell", "Anna Mitchell", "Tristan Lunde",
       "Peter Mitchell", "Jess Sabota", "Ellen Smith", "Tim Smith",
+      "Emma Smith", "Luke Smith",
     ],
   },
 ];
@@ -55,3 +56,11 @@ export const HOME_FAMILY = {
 // Who sees the admin tools (backups and restore, starting next year early).
 // Only the site looks at this: there are no separate admin passwords.
 export const ADMIN_NAMES = ["Tim Smith"];
+
+// One-time changes to who is in which family, for names that already exist
+// in the live lists. Each runs once, the next time anyone opens the site,
+// and is then remembered as done. Add new entries with a new id; never
+// reuse or edit an old one. Later edits on the Names page always win.
+export const FAMILY_UPDATES = [
+  { id: "2026-11-emma-luke-join-mitchell", family: "mitchell", names: ["Emma Smith", "Luke Smith"] },
+];
